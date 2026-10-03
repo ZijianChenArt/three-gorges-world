@@ -1,0 +1,229 @@
+{
+  "asset": "Original media-art sculpture garden",
+  "is_original_dam": false,
+  "up_axis": "glTF Y-up (Blender Z-up converted)",
+  "units": "meters (arbitrary art scale)",
+  "sculptures": [
+    {
+      "name": "01_MEMORY_APERTURE",
+      "location_blender": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "bounds_blender": {
+        "min": [
+          -17.0,
+          -17.0,
+          -0.32499998807907104
+        ],
+        "max": [
+          17.0,
+          17.0,
+          29.422666549682617
+        ]
+      },
+      "location_gltf": [
+        0.0,
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "name": "02_RESONANCE_GARDEN",
+      "location_blender": [
+        -36.0,
+        6.0,
+        0.0
+      ],
+      "bounds_blender": {
+        "min": [
+          -48.5,
+          -6.5,
+          -0.32499998807907104
+        ],
+        "max": [
+          -23.5,
+          18.5,
+          13.655232429504395
+        ]
+      },
+      "location_gltf": [
+        -36.0,
+        0.0,
+        -6.0
+      ]
+    },
+    {
+      "name": "03_DATA_CLOUD",
+      "location_blender": [
+        35.0,
+        7.0,
+        0.0
+      ],
+      "bounds_blender": {
+        "min": [
+          22.0,
+          -6.0,
+          -0.32499998807907104
+        ],
+        "max": [
+          48.0,
+          20.0,
+          16.114749908447266
+        ]
+      },
+      "location_gltf": [
+        35.0,
+        0.0,
+        -7.0
+      ]
+    },
+    {
+      "name": "04_ECHO_CHAMBER",
+      "location_blender": [
+        -24.0,
+        -31.0,
+        0.0
+      ],
+      "bounds_blender": {
+        "min": [
+          -36.0,
+          -43.0,
+          -0.32499998807907104
+        ],
+        "max": [
+          -12.0,
+          -19.0,
+          15.199999809265137
+        ]
+      },
+      "location_gltf": [
+        -24.0,
+        0.0,
+        31.0
+      ]
+    },
+    {
+      "name": "05_PHASE_BLOOM",
+      "location_blender": [
+        26.0,
+        -31.0,
+        0.0
+      ],
+      "bounds_blender": {
+        "min": [
+          13.5,
+          -43.5,
+          -0.32499998807907104
+        ],
+        "max": [
+          38.5,
+          -18.5,
+          17.563175201416016
+        ]
+      },
+      "location_gltf": [
+        26.0,
+        0.0,
+        31.0
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "name": "Obsidian / satin charcoal",
+      "baseColor": [
+        0.02500000037252903,
+        0.03500000014901161,
+        0.054999999701976776,
+        1.0
+      ]
+    },
+    {
+      "name": "Brushed titanium",
+      "baseColor": [
+        0.5,
+        0.6200000047683716,
+        0.6499999761581421,
+        1.0
+      ]
+    },
+    {
+      "name": "Electric vermilion",
+      "baseColor": [
+        0.949999988079071,
+        0.07500000298023224,
+        0.017999999225139618,
+        1.0
+      ]
+    },
+    {
+      "name": "Ultraviolet pink",
+      "baseColor": [
+        0.8500000238418579,
+        0.004999999888241291,
+        0.18000000715255737,
+        1.0
+      ]
+    },
+    {
+      "name": "Signal cyan",
+      "baseColor": [
+        0.004000000189989805,
+        0.699999988079071,
+        0.6499999761581421,
+        1.0
+      ]
+    },
+    {
+      "name": "Ceramic ivory",
+      "baseColor": [
+        0.7799999713897705,
+        0.6800000071525574,
+        0.49000000953674316,
+        1.0
+      ]
+    },
+    {
+      "name": "Deep amethyst",
+      "baseColor": [
+        0.15000000596046448,
+        0.014999999664723873,
+        0.3799999952316284,
+        1.0
+      ]
+    },
+    {
+      "name": "Amber light strip",
+      "baseColor": [
+        1.0,
+        0.20999999344348907,
+        0.03500000014901161,
+        1.0
+      ]
+    }
+  ],
+  "mesh_objects": 29,
+  "vertices": 14696,
+  "triangles": 28384,
+  "textures": [],
+  "glb_bytes": 1056996,
+  "glb_meshes": 29,
+  "glb_triangles": 28384,
+  "glb_sha256": "0d4ca1ff03e22f09d9b542ce6d96f8bdded3e8898eac39b0e72c60c3e8d8d099",
+  "bounds_gltf": {
+    "min": [
+      -48.5,
+      -0.325,
+      -20
+    ],
+    "max": [
+      48,
+      29.422667,
+      43.5
+    ]
+  },
+  "glb_file": "../models/three-gorges.glb",
+  "blender_file": "sculpture-field.blend"
+}

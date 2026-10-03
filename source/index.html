@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#101312" />
+    <meta name="description" content="异构场 SCULPTURE FIELD — 一个可以进入、旋转和探索的实时三维媒体艺术实验。" />
+    <title>异构场 · SCULPTURE FIELD</title>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="world" aria-label="可交互的三维雕塑场景。拖动旋转，滚轮缩放；触屏双指平移与缩放。" tabindex="0"></canvas>
+      <div class="vignette" aria-hidden="true"></div>
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="异构场首页">
+          <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 2 29 9.5v13L16 30 3 22.5v-13Z" stroke="currentColor"/><path d="m3 9.5 13 7.6 13-7.6M16 17v13M16 2v15" stroke="currentColor"/></svg>
+          <span>SCULPTURE<br><b>FIELD</b></span>
+        </a>
+        <div class="edition"><span class="live-dot"></span> REALTIME EXPERIMENT <span class="edition-number">/ 001</span></div>
+        <button class="circle-button" id="about-open" aria-label="关于这个作品" title="关于这个作品"><span aria-hidden="true">i</span></button>
+      </header>
+
+      <div class="scene-label" aria-hidden="true"><span class="crosshair">+</span><span id="scene-location">FIELD / OVERVIEW</span></div>
+      <div class="coordinates" aria-hidden="true"><span id="camera-coordinate">X +00.0 / Y +00.0</span><span>WEBGL · LIVE</span></div>
+
+      <section class="hero-caption" aria-label="作品介绍">
+        <div class="eyebrow"><span class="rule"></span> SPATIAL STUDY — 001</div>
+        <h1>异构场<span>SCULPTURE FIELD</span></h1>
+        <p id="view-description">结构、信号与重力之间。<br>一个没有固定观看方式的雕塑空间。</p>
+      </section>
+
+      <aside class="view-panel" id="view-panel" aria-label="场景视角">
+        <button id="panel-toggle" class="panel-heading" aria-expanded="true" aria-controls="view-list"><span>探索视角 <small>VIEWS</small></span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 12 4-4 4 4"/></svg></button>
+        <div id="view-list">
+          <div class="view-buttons" id="view-buttons"></div>
+          <div class="panel-foot"><span>拖动，自由探索</span><span>↗</span></div>
+        </div>
+      </aside>
+
+      <footer class="bottom-bar">
+        <div class="appearance" role="group" aria-label="视觉风格">
+          <span class="group-label">视像</span>
+          <button data-mode="monolith" class="mode-button is-active" aria-pressed="true"><span class="mode-swatch mono"></span>实体</button>
+          <button data-mode="signal" class="mode-button" aria-pressed="false"><span class="mode-swatch signal"></span>信号</button>
+          <button data-mode="source" class="mode-button" aria-pressed="false"><span class="mode-swatch source"></span>原色</button>
+        </div>
+        <div class="tool-buttons">
+          <button id="motion-toggle" class="tool-button" aria-pressed="false" title="环绕漫游"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 7 5-7 5V5Z"/></svg><span>漫游</span></button>
+          <button id="reset-view" class="tool-button" title="回到全景 (R)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 9a6 6 0 1 1 1 4M4 4v5h5"/></svg><span>复位</span></button>
+          <button id="fullscreen-toggle" class="icon-button" title="全屏" aria-label="切换全屏"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3H3v4m10-4h4v4M3 13v4h4m10-4v4h-4"/></svg></button>
+        </div>
+      </footer>
+      <div class="gesture-hint" id="gesture-hint"><span class="desktop-hint">拖动旋转 · 滚轮缩放 · 右键平移</span><span class="touch-hint">单指旋转 · 双指缩放与平移</span></div>
+
+      <section class="loading-screen" id="loading-screen" aria-live="polite" aria-busy="true">
+        <div class="loading-symbol" aria-hidden="true"><div></div><div></div><div></div></div>
+        <span class="eyebrow">ENTERING THE FIELD</span>
+        <h2 id="loading-title">空间正在形成</h2>
+        <div class="loading-track"><span id="loading-progress"></span></div>
+        <p id="loading-detail">载入雕塑与光线…</p>
+      </section>
+      <section class="error-card" id="error-card" hidden aria-live="assertive">
+        <img class="error-preview" src="./images/preview.webp" alt="五组金属与彩色几何雕塑的静态预览" width="1280" height="900"/><span class="eyebrow">CONNECTION TO THE FIELD</span><h2>空间暂时无法打开</h2><p id="error-detail"></p><button id="retry-button" class="primary-button">重新载入 ↗</button>
+      </section>
+      <div class="toast" role="status" id="toast"></div>
+      <noscript><div class="noscript-card"><img class="error-preview" src="./images/preview.webp" alt="雕塑空间静态预览" width="1280" height="900"/>这个作品需要 JavaScript 才能呈现实时三维空间。请开启 JavaScript 后重新载入。</div></noscript>
+    </main>
+
+    <dialog id="about-dialog" aria-labelledby="about-title">
+      <button id="about-close" class="circle-button dialog-close" aria-label="关闭关于">×</button>
+      <span class="eyebrow">ABOUT THE EXPERIMENT</span>
+      <h2 id="about-title">形态不是终点。<br>观看也是创作。</h2>
+      <p>异构场是一个实时三维媒体艺术实验。雕塑以重复、悬浮和错位组织空间，你可以自由改变观看距离、角度与视觉语言。</p>
+      <dl class="about-details"><div><dt>模型</dt><dd id="model-credit">为此空间创作的原创媒体艺术雕塑</dd></div><div><dt>引擎</dt><dd>Three.js / WebGL</dd></div><div><dt>操作</dt><dd>拖动旋转 · 双指平移与缩放<br>键盘 1–6 切换视角 · R 复位</dd></div></dl>
+      <p class="source-note" id="source-note">这是新创作的艺术场景，不是三峡大坝原模型的还原。后续可以接入新的 GLB 模型，继续扩展这个空间。</p>
+      <button id="about-done" class="primary-button">返回空间 <span>↗</span></button>
+    </dialog>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
