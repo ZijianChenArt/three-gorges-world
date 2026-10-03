@@ -9,14 +9,14 @@ let last=0, hover=null, pointer=null, keyboard=false, dirty=true, lastLabel='', 
 let lastAnnouncement='', lastDraw=0;
 const say=text=>{if(text!==lastAnnouncement){$('#announcement').textContent=text;lastAnnouncement=text;}};
 function resize(){renderer.resize(innerWidth,document.querySelector('#app').clientHeight,Math.min(devicePixelRatio||1,innerWidth<650?1.5:2));dirty=true;}
-function endHold(){if(releasePiece(state)){document.body.dataset.held='false';pointer=null;dirty=true;updateUI();say('已放开。作品继续缓慢迁移。');}}
+function endHold(){if(releasePiece(state)){document.body.dataset.held='false';pointer=null;dirty=true;updateUI();say(state.paused || state.elapsed >= DURATION ? '已放开，位置与痕迹保留。' : '已放开。作品继续缓慢迁移。');}}
 function updateUI(){
   const held=state.held!==null, settled=state.elapsed>=DURATION;
   const phase=held?'局部暂留 / HELD':state.paused?'时间暂停 / PAUSED':settled?'残余 / REMAINDER':'迁移中 / DRIFTING';
   $('#phase-label').textContent=phase;$('#pause').setAttribute('aria-pressed',String(state.paused));$('#pause span').textContent=state.paused?'继续':'暂停';
   document.body.dataset.held=String(held);document.body.dataset.keyboard=String(keyboard);
   let zh='按住一件作品，让它暂时停留。', en='Hold one sculpture. Let the rest move.';
-  if(held){zh='这一件停下了，其余仍在迁移。';en='This sculpture stays. The ground keeps moving.';}
+  if(held){zh=state.paused||settled?'拖动它，改变与周围的距离。':'这一件停下了，其余仍在迁移。';en=state.paused||settled?'Drag it. Change the distances around it.':'This sculpture stays. The ground keeps moving.';}
   if(state.hasMoved){zh='它还在，原来的位置已经空了。';en='It is still here. Where it was is now empty.';}
   if(settled&&!held&&!state.hasMoved){zh='迁移已止，你仍能改变它。';en='The drift has settled. You can still change it.';}
   if(state.paused&&!held&&!state.hasMoved){zh='时间暂停。你仍可以移动一处。';en='Time is paused. You can still move a piece.';}
@@ -42,7 +42,7 @@ canvas.addEventListener('keydown',event=>{
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Enter','Escape'].includes(event.key))event.preventDefault();else return;
   keyboard=true;hover=null;
   const directions={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
-  if(directions[event.key]){const [x,z]=directions[event.key];if(state.held===null){state.selected=neighboringPiece(state,x,z);say(`已选取第 ${state.selected+1} 件作品。空格按住。`);}else{moveHeld(state,x*.22,z*.22);say('作品已移动。空格放开。');}}
+  if(directions[event.key]){const [x,z]=directions[event.key];if(state.held===null){state.selected=neighboringPiece(state,x,z);say(`已选取${state.pieces[state.selected].label}。空格按住。`);}else{moveHeld(state,x*.22,z*.22);say('作品已移动。空格放开。');}}
   if((event.key===' '||event.key==='Enter')&&!event.repeat){if(state.held!==null)endHold();else{holdPiece(state,state.selected);say('已按住。用方向键移动，空格放开。');}}
   if(event.key==='Escape')endHold();
   dirty=true;updateUI();
