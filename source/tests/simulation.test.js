@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createState, advance, holdPiece, moveHeld, releasePiece, positionOf, neighboringPiece, terrainHeight, DURATION, formatTime } from '../src/simulation.js';
 import { project, unprojectDelta } from '../src/renderer.js';
 test('initial terrain is finite and uniquely addressable',()=>{const s=createState();assert.ok(s.pieces.length>0);assert.equal(new Set(s.pieces.map(p=>p.id)).size,s.pieces.length);for(const p of s.pieces)assert.ok([p.x,p.z,terrainHeight(p.x,p.z)].every(Number.isFinite));});
-test('elapsed time advances and large resume gaps are bounded',()=>{const s=createState();advance(s,.05);assert.equal(s.elapsed,.05);advance(s,40);assert.ok(Math.abs(s.elapsed-.15)<1e-12);});
+test('active-page elapsed time remains accurate under slow frame rates',()=>{const s=createState();advance(s,.05);assert.equal(s.elapsed,.05);advance(s,40);assert.ok(Math.abs(s.elapsed-40.05)<1e-12);});
 test('reduced motion starts paused',()=>{const s=createState({reducedMotion:true});advance(s,.1);assert.equal(s.elapsed,0);assert.equal(s.paused,true);});
 test('the score settles at its terminal state without reset',()=>{const s=createState();s.elapsed=DURATION-.02;advance(s,.1);assert.equal(s.elapsed,DURATION);advance(s,.1);assert.equal(s.elapsed,DURATION);});
 test('a held piece freezes while the rest moves',()=>{const s=createState();s.elapsed=25;holdPiece(s,0);const before=positionOf(s.pieces[0],s),other=positionOf(s.pieces[1],s);s.elapsed=75;assert.deepEqual(positionOf(s.pieces[0],s),before);assert.notDeepEqual(positionOf(s.pieces[1],s),other);});

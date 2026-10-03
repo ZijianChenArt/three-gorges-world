@@ -23,7 +23,7 @@ export function createState({ reducedMotion = false, models = DEFAULT_MODELS } =
   return { pieces, elapsed:0, paused:reducedMotion, held:null, selected:0, contacts:0, hasMoved:false };
 }
 export function advance(state, seconds) {
-  if (!state.paused && Number.isFinite(seconds) && seconds > 0) state.elapsed = Math.min(DURATION, state.elapsed + Math.min(seconds, .1));
+  if (!state.paused && Number.isFinite(seconds) && seconds > 0) state.elapsed = Math.min(DURATION, state.elapsed + seconds);
 }
 export function positionOf(piece, state) {
   const t = clamp(((piece.heldAt ?? state.elapsed) - piece.delay) / DURATION, 0, 1);
