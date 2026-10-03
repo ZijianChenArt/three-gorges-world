@@ -1,16 +1,12 @@
-# Browser verification
+# Autonomous artwork browser checks
 
-Run the production build over HTTP or the published GitHub Pages URL. Tests using mocked Canvas2D verify pure rendering behavior but do not substitute for browser/device checks.
+1. Open the production URL without touching the canvas. Confirm five recognizable original sculptures appear and the line field visibly transforms within ten seconds.
+2. Watch a whole cycle: layered dissolution, broad common weave, reconstruction of all five models, then continued movement into the next cycle without a blank frame or abrupt reset.
+3. Check Pause/Play at both formed and woven phases. Pausing must hold exactly the current composition; resuming must not jump.
+4. Open About, then close via its close button, return button, Escape and outside backdrop. Focus returns to the opener; the composition resumes without a time jump.
+5. Switch tabs while playing and return. Time does not advance while hidden.
+6. With reduced motion enabled, load a fully formed still composition. Play explicitly to start, then pause.
+7. Inspect portrait phone, tablet, desktop and landscape framing through formed, intermediate and woven phases; no geometry or controls should be clipped.
+8. Check browser console for site-origin exceptions. The app must work without WebGL, external services, pointer input or audio permissions.
 
-1. Desktop and portrait phone: all five original sculptures appear; no WebGL requirement, overflow, clipped controls or missing assets.
-2. Hover or focus a sculpture; hold it. The held state and on-canvas frame appear immediately. Other sculptures continue migrating.
-3. Drag and release. The sculpture stays relocated, the ground deforms, and its previous geometry remains faintly visible. Release does not snap it back.
-4. Cancel a pointer or leave the tab while holding. It must release safely. Repeated dragging must remain possible.
-5. Focus the canvas with the keyboard. Arrows choose a sculpture; Space holds; arrows move; Space releases. Escape also releases. R resets.
-6. Pause time, wait, then manipulate a sculpture. The clock stays still; manipulation remains available. Resume time.
-7. Open Rules, close with its button, Escape, and the outside backdrop. Focus returns to the opener. No time jump occurs.
-8. Sound starts off; explicit activation turns it on. Turning off silences it. No microphone permission is used.
-9. Reduced motion: load with the preference enabled. Time starts paused while the artwork remains interactive.
-10. Allow the 140-second score to settle. It remains visible and interactive with the state label “残余 / REMAINDER”. It never resets automatically.
-11. Reset after interacting and after settling; clear all traces and restore initial composition. Repeat.
-12. Check browser console for exceptions and asset/network failures. State and interaction remain entirely in the page.
+Unit checks sample all five source geometries and verify exact reformation, continuity at cycle boundaries, deterministic transformation, finite/bounded positions and automatic framing across six viewport sizes. Pure-render proofs do not replace browser or physical-device testing.

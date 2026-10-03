@@ -4,37 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#fafafa" />
-  <meta name="description" content="保留地 HOLDING GROUND。一件关于迁移、保留与原位的交互网络作品。按住一件作品，让它暂时停留。" />
+  <meta name="description" content="相互成形 In Formation. 五件雕塑在同一片线场中自动松解、编织、重新成形。一件持续运行的网络媒体艺术作品。" />
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-  <title>保留地 / HOLDING GROUND</title>
+  <title>相互成形 / In Formation.</title>
 </head>
 <body>
   <main id="app">
-    <canvas id="world" tabindex="0" aria-label="正在缓慢迁移的五件线框雕塑。按住一件雕塑使它停留，拖动改变位置，松开继续漂移。" aria-describedby="keyboard-help"></canvas>
-    <header class="masthead"><a href="./" class="work-name">HOLDING GROUND<span>保留地</span></a><span class="work-type">A BROWSER-BASED WORK<br>2026 / NO. 001</span></header>
-    <div class="score" aria-hidden="true"><span id="phase-label">迁移中 / DRIFTING</span><span id="elapsed">00:00</span><span class="duration">/ 02:20</span></div>
-    <section class="caption" aria-label="作品标题与操作提示">
-      <p class="index-line">ON KEEPING A PLACE</p>
-      <h1>保留地<span>Holding Ground.</span></h1>
-      <p id="instruction">按住一件作品，让它暂时停留。</p>
-      <p class="instruction-en" id="instruction-en">Hold one sculpture. Let the rest move.</p>
-    </section>
-    <div class="contact" id="contact" aria-hidden="true"><span></span><i></i></div>
-    <footer class="footer"><p class="session-note">此刻，只发生在这里。<span>ONLY IN THIS SESSION</span></p><nav aria-label="作品控制"><button id="sound" aria-pressed="false">声音 <span>关</span></button><button id="pause" aria-pressed="false">时间 <span>暂停</span></button><button id="rules-open">规则 <span>↗</span></button><button id="reset">重新开始 <span>↺</span></button></nav></footer>
-    <p id="keyboard-help" class="sr-only">键盘：方向键选择一件雕塑，空格或回车按住，再用方向键移动，再按空格或回车放开。Escape 放开。R 重新开始。你可以暂停时间，继续移动地形。</p>
+    <canvas id="world" role="img" aria-label="自动运行的黑白线场：五件原始雕塑逐层松解，交织成一片曲面，然后重新形成五件雕塑。无需鼠标或触屏操作。"></canvas>
+    <header class="masthead"><span>CONTINUOUS STUDY</span><span>2026 / 01</span></header>
+    <section class="caption" aria-label="作品标题"><h1>相互成形<span>In Formation.</span></h1><p>五种形态，一片持续变化的线场。</p></section>
+    <footer class="footer"><span class="edition">AN ONGOING WEB WORK</span><nav aria-label="作品控制"><button id="pause" aria-pressed="false">暂停 <span aria-hidden="true">Ⅱ</span></button><button id="about-open">关于 <span aria-hidden="true">＋</span></button></nav></footer>
     <p id="announcement" role="status" class="sr-only"></p>
-    <p class="keyboard-indicator" id="keyboard-indicator">方向键选择 · 空格按住 / 放开 · 按住后方向键移动</p>
-    <noscript><div class="unsupported">这件作品需要 JavaScript。开启后，按住一件雕塑，让它暂时停留。</div></noscript>
-    <div class="unsupported" id="unsupported" hidden>这个浏览器暂时无法打开实时画布。请尝试更新浏览器后重新打开。</div>
+    <noscript><p class="unsupported">开启 JavaScript 后，这件线场作品会自动运行。</p></noscript>
+    <p id="unsupported" class="unsupported" hidden>这个浏览器暂时无法打开动态画布。请尝试更新浏览器后重新打开。</p>
   </main>
-  <dialog id="rules" aria-labelledby="rules-title">
-    <button id="rules-close" class="close" aria-label="关闭规则">×</button>
-    <p class="index-line">THE SCORE / 作品规则</p>
-    <h2 id="rules-title">能留下形状，<br>能否留下关系？</h2>
-    <div class="rule-text"><p>五件雕塑共处一片正在迁移的地形。<br>按住一件，它会停留；其余部分继续移动。<br>拖动，把它带往别处；地形被牵引，原位留下轮廓。<br>松开，它再次漂移。</p><p>你可以保留一部分，却不能让所有关系回到原样。<br>两分二十秒后，迁移渐止。你仍然可以改变它。</p></div>
-    <div class="rule-meta"><p>鼠标 / 触屏<br><span>按住 · 拖动 · 松开</span></p><p>键盘<br><span>方向键选取，空格按住；<br>方向键移动，再按空格放开。</span></p></div>
-    <p class="disclosure">五件原有雕塑以原始几何的线框继续存在。地形为程序生成的抽象场景，非三峡测绘或历史模拟。过程只发生于本次浏览，不上传、不记录。刷新或重新开始会清除本次痕迹。尊重系统的减少动态效果设置；也可随时暂停时间。</p>
-    <button id="rules-return" class="return">返回作品 <span>↗</span></button>
+  <dialog id="about" aria-labelledby="about-title">
+    <button id="about-close" class="close" aria-label="关闭关于">×</button>
+    <p class="eyebrow">IN FORMATION.</p>
+    <h2 id="about-title">形态，暂时成立。</h2>
+    <p>五件雕塑的边线缓慢松解，交织成共同的曲面，再结成各自的形状。</p>
+    <p>这是一件自动运行的作品。无需点击、拖动或完成任务，观看即可。每轮重新成形时，五种形态的位置都会交换。</p>
+    <p class="model-names">记忆孔径 · 共振花园 · 数据云<br>回声室 · 相位花</p>
+    <p class="disclosure">保留五件原模型的真实边线，使用连续的空间变换生成全过程。没有随机重置、倒计时或数据采集。尊重系统的减少动态效果设置，也可随时暂停。</p>
+    <button id="about-return" class="return">继续观看 <span aria-hidden="true">→</span></button>
   </dialog>
   <script type="module" src="./src/main.js"></script>
 </body>

@@ -1,8 +1,6 @@
-import {test} from 'node:test';
-import assert from 'node:assert/strict';
-import {Landscape,deformGround} from '../src/renderer.js';
-import {createState,holdPiece,moveHeld} from '../src/simulation.js';
-const context=()=>new Proxy({}, {get:(target,key)=>target[key]??(()=>{}),set:(target,key,value)=>{target[key]=value;return true;}});
-test('drawing works with a 2D canvas and no WebGL methods',()=>{const models=Array.from({length:5},(_,id)=>({center:[id,0,id],edges:[-1,0,-1,1,2,1]}));const canvas={getContext:type=>{assert.equal(type,'2d');return context();}};const r=new Landscape(canvas,models);for(const[w,h]of[[1440,1000],[390,844],[320,568],[844,390]]){r.resize(w,h,1);r.draw(createState({models}));assert.equal(r.hits.length,5);assert.ok(r.hits.every(hit=>Object.values(hit.bounds).every(Number.isFinite)));}});
-test('dragging a sculpture changes the surrounding ground',()=>{const s=createState(),p=s.pieces[0],before=deformGround(p.x,p.z,s);holdPiece(s,0);moveHeld(s,2,3);const after=deformGround(p.x,p.z,s);assert.notDeepEqual(before,after);assert.ok(after.every(Number.isFinite));});
-test('a sculpture can be picked by its projected edge',()=>{const r=new Landscape({getContext:()=>context()},[{edges:[-1,0,0,1,1,0]}]);r.resize(800,600,1);const state=createState({models:[{center:[0,0,0],name:'test'}]});state.pieces.push(...createState().pieces.slice(1));r.draw(state);const a=r.hits[0].segments[0][0];assert.equal(r.hit(a.x,a.y),0);assert.equal(r.hit(-500,-500),null);});
+import {test} from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {Formation,fittedView} from '../src/renderer.js';
+const groups=JSON.parse(readFileSync(new URL('../public/models/sculpture-wireframes.json',import.meta.url))).groups;
+const ctx=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
+test('renderer needs Canvas2D only, without WebGL',()=>{const r=new Formation({getContext:type=>{assert.equal(type,'2d');return ctx;}},groups);r.resize(1188,762,1);r.draw(38);assert.ok(r.lastBounds);});
+test('automatic framing contains all geometry throughout the cycle on desktop and phone',()=>{const r=new Formation({getContext:()=>ctx},groups);for(const[w,h]of[[320,568],[390,844],[768,1024],[1188,762],[1440,1000],[844,390]])for(const t of [0,8,18,29,38,51,66,78,84]){const{bounds:b}=r.geometry(t),v=fittedView(w,h,b);assert.ok(v.scale>0);assert.ok(v.cx+b.minX*v.scale>=10);assert.ok(v.cx+b.maxX*v.scale<=w-10);assert.ok(v.cy+b.minY*v.scale>=75);assert.ok(v.cy+b.maxY*v.scale<=h-130);}});
+test('all prepared line points stay finite',()=>{const r=new Formation({getContext:()=>ctx},groups);for(const t of [0,12,38,66,82]){const{groups}=r.geometry(t);assert.equal(groups.length,5);for(const g of groups)assert.ok(g.points.every(Number.isFinite));}});
