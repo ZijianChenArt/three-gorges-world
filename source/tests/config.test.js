@@ -7,3 +7,5 @@ test('no tracking, external request, or browser storage',()=>{const code=read('s
 test('relative production paths and Pages marker are valid',()=>{assert.ok(read('vite.config.js').includes("base: './'"));assert.ok(existsSync(new URL('../public/.nojekyll',import.meta.url)));});
 test('motion preferences and interrupted viewing are handled',()=>{const code=read('src/main.js');for(const x of ['prefers-reduced-motion','visibilitychange','about.open','last=performance.now()'])assert.ok(code.includes(x));});
 test('visual palette remains strictly grayscale',()=>{const code=read('src/style.css')+read('src/renderer.js');for(const match of code.matchAll(/#([0-9a-f]{6})(?:[0-9a-f]{2})?\b/gi)){const h=match[1];assert.equal(h.slice(0,2),h.slice(2,4));assert.equal(h.slice(0,2),h.slice(4,6));}});
+
+test('randomness is initialized once per visit, not on each animation frame',()=>{const code=read('src/main.js');assert.ok(code.includes('crypto.getRandomValues'));assert.ok(code.indexOf('crypto.getRandomValues')<code.indexOf('function frame'));assert.ok(!read('src/simulation.js').includes('Math.random'));});

@@ -1,18 +1,15 @@
-import {prepareModels,transformPoint,morphAt} from './simulation.js';
+import {prepareModels,makeTraits,edgeFrame} from './simulation.js';
 const YAW=-.2,TILT=.34,cy=Math.cos(YAW),sy=Math.sin(YAW),ct=Math.cos(TILT),st=Math.sin(TILT);
 export function projectRaw(x,y,z){const rx=x*cy-z*sy,depth=x*sy+z*cy;return[rx,depth*st-y*ct,depth*ct+y*st];}
-export function fittedView(width,height,bounds){
-  const phone=width<650,top=phone?96:86,bottom=height-(phone?246:200);
-  const stageHeight=Math.max(140,bottom-top),scale=Math.min((width-(phone?26:80))/(bounds.maxX-bounds.minX||1),stageHeight/(bounds.maxY-bounds.minY||1));
-  return{scale,cx:width/2-(bounds.minX+bounds.maxX)*scale/2,cy:top+stageHeight/2-(bounds.minY+bounds.maxY)*scale/2};
-}
+export function fittedView(width,height,bounds){const phone=width<650,top=phone?96:86,bottom=height-(phone?246:200),stageHeight=Math.max(140,bottom-top),scale=Math.min((width-(phone?26:80))/(bounds.maxX-bounds.minX||1),stageHeight/(bounds.maxY-bounds.minY||1));return{scale,cx:width/2-(bounds.minX+bounds.maxX)*scale/2,cy:top+stageHeight/2-(bounds.minY+bounds.maxY)*scale/2};}
 export class Formation{
-  constructor(canvas,groups){this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.models=prepareModels(groups);this.width=0;this.height=0;this.lastBounds=null;}
+  constructor(canvas,groups){this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.models=prepareModels(groups);this.width=0;this.height=0;this.traits=[];this.keys=[];this.lastBounds=null;}
   resize(width,height,dpr=1){this.width=width;this.height=height;this.canvas.width=Math.round(width*dpr);this.canvas.height=Math.round(height*dpr);this.ctx?.setTransform(dpr,0,0,dpr,0,0);}
-  geometry(elapsed){const bounds={minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity};const groups=this.models.map(model=>{const points=new Float32Array(model.segments.length);for(let i=0;i<model.segments.length;i+=3){const q=transformPoint(model,model.segments[i],model.segments[i+1],model.segments[i+2],elapsed),p=projectRaw(...q);points[i]=p[0];points[i+1]=p[1];points[i+2]=p[2];bounds.minX=Math.min(bounds.minX,p[0]);bounds.maxX=Math.max(bounds.maxX,p[0]);bounds.minY=Math.min(bounds.minY,p[1]);bounds.maxY=Math.max(bounds.maxY,p[1]);}return{points,index:model.index,morph:morphAt(elapsed,model.index)};});return{groups,bounds};}
-  draw(elapsed){const c=this.ctx;if(!c)return;const{width:w,height:h}=this;c.fillStyle='#fafafa';c.fillRect(0,0,w,h);const{groups,bounds}=this.geometry(elapsed),view=fittedView(w,h,bounds);this.lastBounds=bounds;this.view=view;
-    for(const group of groups){const alpha=.68-group.morph*.38;c.strokeStyle=`rgba(15,15,15,${alpha.toFixed(3)})`;c.lineWidth=(w<650?.52:.68)-group.morph*.1;c.beginPath();for(let i=0;i<group.points.length;i+=6){c.moveTo(view.cx+group.points[i]*view.scale,view.cy+group.points[i+1]*view.scale);c.lineTo(view.cx+group.points[i+3]*view.scale,view.cy+group.points[i+4]*view.scale);}c.stroke();}
-    // Quiet registration strokes frame the live drawing without an interface grid.
+  geometry(state){const bounds={minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity};const groups=this.models.map(model=>{const score=state.scores[model.index];if(this.keys[model.index]!==score.key){this.keys[model.index]=score.key;this.traits[model.index]=Array.from({length:model.edges.length/6},(_,e)=>makeTraits(score,e));}const points=new Float32Array(model.edges.length/6*9);for(let e=0;e<model.edges.length/6;e++){const q=edgeFrame(model,score,state.elapsed,e,this.traits[model.index][e]),a=projectRaw(q[0],q[1],q[2]),b=projectRaw(q[3],q[4],q[5]),i=e*9;points.set([...a,...b,q[6],q[7],q[8]],i);bounds.minX=Math.min(bounds.minX,a[0],b[0]);bounds.maxX=Math.max(bounds.maxX,a[0],b[0]);bounds.minY=Math.min(bounds.minY,a[1],b[1]);bounds.maxY=Math.max(bounds.maxY,a[1],b[1]);}return{points,index:model.index};});return{groups,bounds};}
+  draw(state){const c=this.ctx;if(!c)return;const{width:w,height:h}=this;c.fillStyle='#fafafa';c.fillRect(0,0,w,h);const{groups,bounds}=this.geometry(state),v=fittedView(w,h,bounds);this.lastBounds=bounds;this.view=v;const lines=Array.from({length:32},()=>[]),dots=Array.from({length:12},()=>[]);
+    for(const group of groups)for(let i=0;i<group.points.length;i+=9){const p=group.points,x1=v.cx+p[i]*v.scale,y1=v.cy+p[i+1]*v.scale,x2=v.cx+p[i+3]*v.scale,y2=v.cy+p[i+4]*v.scale;lines[Math.min(31,Math.round(p[i+6]*31))].push(x1,y1,x2,y2);if(p[i+7]>.02)dots[Math.min(11,Math.round(p[i+7]*23))].push(x1,y1,x2,y2,p[i+8]);}
+    c.lineWidth=w<650?.54:.65;for(let b=1;b<32;b++){if(!lines[b].length)continue;c.strokeStyle=`rgba(15,15,15,${(b/31).toFixed(3)})`;c.beginPath();for(let i=0;i<lines[b].length;i+=4){c.moveTo(lines[b][i],lines[b][i+1]);c.lineTo(lines[b][i+2],lines[b][i+3]);}c.stroke();}
+    for(let b=1;b<12;b++){if(!dots[b].length)continue;c.fillStyle=`rgba(15,15,15,${(b/23).toFixed(3)})`;c.beginPath();for(let i=0;i<dots[b].length;i+=5){const d=dots[b],r=d[i+4];c.moveTo(d[i]+r,d[i+1]);c.arc(d[i],d[i+1],r,0,Math.PI*2);c.moveTo(d[i+2]+r,d[i+3]);c.arc(d[i+2],d[i+3],r,0,Math.PI*2);}c.fill();}
     c.strokeStyle='#909090';c.lineWidth=.6;for(const[x,y]of[[23,75],[w-23,75],[23,h-83],[w-23,h-83]]){c.beginPath();c.moveTo(x-3,y);c.lineTo(x+3,y);c.moveTo(x,y-3);c.lineTo(x,y+3);c.stroke();}
   }
 }

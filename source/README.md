@@ -1,16 +1,18 @@
 # 相互成形 / In Formation.
 
-An autonomous, continuously running web artwork. Five original sculptures unfold into one woven line field and then re-form in exchanged positions. The visitor does not need to click, drag or complete a task.
+An autonomous, continuously running web artwork. Five original sculptures have independent, seeded lifecycles: they rest, shed individual edges into strokes and endpoint dots, drift through different quiet fields, and occasionally re-form. No click or gesture is needed.
 
-The visual language is black-and-white line drawing, archival typography and open space. There is no floor grid, countdown, required gesture, score or migration narrative.
+The visual language is black-and-white line drawing, archival typography and open space. There is no common ribbon, synchronized loop, floor grid, countdown, score or required gesture.
 
-## The running score
+## Independent, continuously changing processes
 
-One continuous spatial transformation acts on the same original model vertices. Neighboring edges remain related. The five forms dissolve at different times, enter a common curved ribbon, then become the five original forms again. Long original edges are sampled before transformation so they bend as continuous curves rather than cutting across the flow as straight chords.
+A fresh random seed is generated once per page visit. Each sculpture then receives its own reproducible sequence of rest, release, drift, return and re-formation intervals. Different fields spread fragments upward, outward, around an open center, across a plane, or softly downward. These choices vary across lifecycles and visits.
 
-A cycle takes 84 seconds. Geometry is continuous across its boundary. Each cycle exchanges the sculptures' positions while they are fully inside the common line field; the underlying weave and breathing motion keep evolving across cycles. The first ten seconds already contain a visible transformation.
+Each original edge has a separate release delay, destination, orientation, fading curve and tendency to dissolve into endpoint dots. Only a sparse selection remains visible during full dispersal, leaving room around the marks. Slow continuous oscillations move the fragments; there is no per-frame random noise or jitter. New random choices are introduced only while the relevant sculpture has fully re-formed, so boundaries remain continuous.
 
-The two controls are Pause/Play and About. No interaction is needed to start. Reduced-motion preference opens a fully formed still composition with an explicit Play option. Hidden tabs and the About dialog suspend the score and resume without a time jump.
+The original forms reappear at their own times. There is no shared period, countdown, abrupt reset or demand to interact. The first ten seconds already include a visible release.
+
+The two controls are Pause/Play and About. Reduced-motion preference opens a fully formed still composition with an explicit Play option. Hidden tabs and the About dialog suspend the process and resume without a time jump.
 
 ## Five original sculptures
 
@@ -20,7 +22,7 @@ The two controls are Pause/Play and About. No interaction is needed to start. Re
 - Echo Chamber / 回声室
 - Phase Bloom / 相位花
 
-All five actual geometry groups are retained. `public/models/sculpture-wireframes.json` contains 5,789 original crease/boundary segments (about 285 kB raw). Coplanar triangulation and microscopic bevel detail are simplified, not replaced with invented models. Reformed phases reproduce each original edge set up to a rigid placement and small uniform breathing scale.
+All five actual geometry groups are retained. `public/models/sculpture-wireframes.json` contains 5,789 original crease/boundary segments (about 285 kB raw). Coplanar triangulation and microscopic bevel detail are simplified, not replaced with invented models. Each sculpture’s reformed interval reproduces its original edge set up to a rigid placement and small uniform breathing scale.
 
 `public/models/three-gorges.glb` is the unchanged original five-sculpture asset. The inherited repository and GLB names come from an earlier experiment; this is not a dam reconstruction, survey or historical simulation. The original Blender project remains in the repository's `artwork/` directory. Previous versions remain in Git history.
 
@@ -47,13 +49,13 @@ For GitHub Pages, production files are at the repository root and editable sourc
 
 ## Files
 
-- `src/simulation.js`: deterministic choreography, source and weave maps, phase offsets
-- `src/renderer.js`: continuous-edge projection, automatic framing and Canvas2D rendering
+- `src/simulation.js`: seeded independent lifecycles, edge release and dispersal fields
+- `src/renderer.js`: sparse stroke/dot rendering, trait caching and automatic framing
 - `src/main.js`: automatic playback, pause, motion preference and About dialog
 - `src/style.css`: responsive monochrome layout
 - `scripts/extract-wireframes.py`: reproducible GLB-to-edge conversion
 - `scripts/WIREFRAME-ASSETS.md`: asset normalization, schema and tolerances
-- `tests/`: state, reformation, continuity, framing and structural checks
+- `tests/`: random-seed repeatability, independent phases, reformation, continuity, sparsity and framing checks
 - `QA.md`: browser verification checklist
 
 No license is implied for the original artwork or application code. Build-generated dependency notices are retained separately.
