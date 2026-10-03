@@ -1,34 +1,16 @@
 <!doctype html>
 <html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#fafafa" />
-  <meta name="description" content="相互成形 In Formation. 五件雕塑以各自的节奏散开，线与点自由浮游，又偶尔重新成形。一件持续运行的网络媒体艺术作品。" />
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-  <title>相互成形 / In Formation.</title>
-  <script type="module" crossorigin src="./assets/index-VJpvXUM-.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-Ea0N_2QC.css">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f3ec"><meta name="description" content="全部保留 All Assets Retained. 一个自动登记、粗化、合并三维形体的虚构保留程序。记录持续存在，形体逐渐归零。"><link rel="icon" type="image/svg+xml" href="./favicon.svg"><title>全部保留 / All Assets Retained.</title>  <script type="module" crossorigin src="./assets/index-C-cKWqx-.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Co3HkonU.css">
 </head>
 <body>
-  <main id="app">
-    <canvas id="world" tabindex="0" role="application" aria-describedby="keyboard-help" aria-label="自动运行的黑白线场：五件原始雕塑以各自的节奏松解为分散的线与点，自由浮游，再缓缓成形。可单指旋转、双指平移缩放，轻点泛起涟漪，长按聚拢。也可不操作，静静观看。"></canvas>
-    <header class="masthead"><span>CONTINUOUS STUDY</span><span>2026 / 01</span></header>
-    <section class="caption" aria-label="作品标题"><h1>相互成形<span>In Formation.</span></h1><p>线与点，自行散开，又缓缓成形。</p><p class="gesture-hint"><span class="desktop-hint">拖动旋转 · 滚轮缩放 · 轻点涟漪 · 长按聚拢</span><span class="touch-hint">单指旋转 · 双指平移缩放 · 轻点涟漪 · 长按聚拢</span></p></section>
-    <footer class="footer"><span class="edition">AN ONGOING WEB WORK</span><nav aria-label="作品控制"><button id="pause" aria-pressed="false">暂停 <span aria-hidden="true">Ⅱ</span></button><button id="reset-view" title="恢复观看视角">归位 <span aria-hidden="true">↺</span></button><button id="about-open">关于 <span aria-hidden="true">＋</span></button></nav></footer>
-    <p id="keyboard-help" class="sr-only">方向键旋转，Shift 加方向键平移，加减键缩放，Home 归位。数字 1 到 5 选择模型，回车涟漪，G 聚拢或释放，Escape 释放。空格暂停或播放。</p><p id="announcement" role="status" class="sr-only"></p>
-    <noscript><p class="unsupported">开启 JavaScript 后，这件线场作品会自动运行。</p></noscript>
-    <p id="unsupported" class="unsupported" hidden>这个浏览器暂时无法打开动态画布。请尝试更新浏览器后重新打开。</p>
-  </main>
-  <dialog id="about" aria-labelledby="about-title">
-    <button id="about-close" class="close" aria-label="关闭关于">×</button>
-    <p class="eyebrow">IN FORMATION.</p>
-    <h2 id="about-title">形态，暂时成立。</h2>
-    <p>每一种形态有自己的停留、松解与返回。线条脱离，端点浮游，在留白中缓缓散开。</p>
-    <p>这是一件自动运行的作品。无需点击、拖动或完成任务，观看即可。没有统一的节拍，也没有相同的归途。也可以触碰它：旋转视角、泛起涟漪，或暂时聚拢一件形态。</p>
-    <div class="controls-guide"><p>单指拖动旋转 · 双指平移与缩放<br>轻点模型泛起涟漪 · 长按聚拢，松开释放</p><p>鼠标拖动旋转，右键拖动平移，滚轮缩放。<br>键盘方向键旋转，Shift＋方向键平移，＋／－缩放。<br>1–5 选取，Enter 涟漪，G 聚拢／释放，Home 归位。</p></div><p class="model-names">记忆孔径 · 共振花园 · 数据云<br>回声室 · 相位花</p>
-    <p class="disclosure">保留五件原模型的真实边线。轮廓薄片、曲线尾迹、点簇与淡淡回声各自出现；每次松解的方向、范围和停留时间不同，原形仍会间歇重现。没有倒计时或数据采集。尊重系统的减少动态效果设置，也可随时暂停。</p>
-    <button id="about-return" class="return">继续观看 <span aria-hidden="true">→</span></button>
-  </dialog>
-</body>
-</html>
+<main id="app">
+  <canvas id="world" tabindex="0" role="application" aria-label="全部保留。五件真实雕塑的副本自动被粗化、合并，最终只留下空包围框和登记编号。可拖动检查角度；操作不改变自动处理程序。" aria-describedby="keyboard-help"></canvas>
+  <header class="masthead"><span>RETENTION PROTOCOL / 2026</span><span id="batch">INTAKE 001</span></header>
+  <section class="title"><h1>全部保留<span>All Assets Retained.</span></h1><p>自动归档程序 / 持续运行</p></section>
+  <section class="register" aria-label="实际登记与几何计数"><div class="retained"><span>登记记录</span><strong id="record-count">5</strong></div><div class="edges"><span>有效边线</span><strong id="edge-count">5789</strong></div><div class="procedure"><span id="operation">调入源副本</span><small id="operation-detail">SOURCE COPY / 001</small></div></section>
+  <footer><span class="footnote">AUTONOMOUS / ARCHIVE</span><nav aria-label="观看控制"><button id="pause" aria-pressed="false">暂停 Ⅱ</button><button id="reset-view">归位 ↺</button><button id="about-open">说明 ＋</button></nav></footer>
+  <p id="keyboard-help" class="sr-only">作品自动运行。拖动旋转，双指平移缩放；鼠标右键拖动平移，滚轮缩放。键盘方向键旋转，Shift 加方向键平移，加减键缩放，Home 归位，空格暂停。触碰只改变观察角度，不改变归档程序。</p><p id="announcement" role="status" class="sr-only"></p><p id="unsupported" hidden>浏览器暂时无法打开动态画布，请更新浏览器后重试。</p><noscript>开启 JavaScript 后，程序会自行运行。</noscript>
+</main>
+<dialog id="about" aria-labelledby="about-title"><button id="about-close" aria-label="关闭说明">×</button><p class="eyebrow">ALL ASSETS RETAINED.</p><h2 id="about-title">记录仍然完整。</h2><p>一套虚构的保留规范，持续调入五件雕塑的副本。形体被移向越来越粗的格点，重合顶点与重复边被合并，零长度边被删除。最后，登记编号与原始包围框仍在，模型边线已归零。</p><p>新副本随后进入下一次验收。尺寸、方向与观察位置会变化；登记记录继续累积。画面中的“有效边线”直接来自当前仍存在的模型边，不计包围框等制图辅助线。</p><p>作品自行运行。拖动可检查形体，双指平移和缩放；松开一段时间后，视角缓慢回到自动行进。观看角度不改变处理结果。</p><p class="small">鼠标拖动旋转，右键平移，滚轮缩放。方向键旋转，Shift＋方向键平移，＋／－缩放，Home 归位，空格暂停。</p><p class="small">只改变本次浏览中的模型副本，不修改原文件，不读取私有数据，不调用 AI，不收集访问数据。五件原始模型和 Blender 源文件保留。尊重“减少动态效果”设置；也可随时暂停。</p><button id="about-return">返回观看 →</button></dialog>
+</body></html>

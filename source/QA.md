@@ -1,24 +1,26 @@
-# Browser verification for independent dispersal
+# Release validation — 4.0.0
 
-1. Open without touching the canvas. Five recognizable original sculptures appear. One begins shedding individual edges within ten seconds while others wait.
-2. Watch several moments rather than looking for a synchronized loop. Different sculptures should occupy different states, with distinct dispersal directions and ranges.
-3. Confirm both short detached strokes and endpoint dots are visible. Fully dispersed portions should be sparse, with open space and slow continuous motion rather than random frame-to-frame flicker.
-4. Continue until original forms return at different times. Each form must reappear intact; it should not get permanently lost in a particle field.
-5. Reload. The new visit receives different timing and field choices, with the same five originals.
-6. Pause/Play while partly dispersed. Pause holds the current composition; resume is continuous.
-7. Open About and close using its button, Return, Escape and outside backdrop. Focus returns to the opener and the score does not jump.
-8. Switch tabs and return. Hidden time is not included. Reduced-motion preference must begin on a fully formed still image.
-9. Check portrait phone, tablet, desktop and landscape sizes. Geometry and controls remain inside the visible area, including during wide dispersal.
-10. Check site-origin console errors. Canvas2D must work without WebGL, audio, external services, pointer gestures or permission prompts.
+## Automated checks
 
-Automated tests cover seeded reproducibility, variation across seeds and lifecycles, independent timing, individual edge delays, exact model re-formation, continuous lifecycle boundaries, sparse mark budgets, finite/bounded geometry and six responsive sizes. Render proofs do not replace physical-device testing.
+35 tests passed, followed by the production Vite build.
 
-## Rich layers and optional gesture regression checks
+- Five source groups and all 5,789 initial edges preserved.
+- Quantization moves real coordinates; no opacity-based substitute.
+- Surviving edge topology decreases monotonically and ends at zero.
+- Actual edge arrays drive displayed counts.
+- All source-triangle facets are degenerate at the empty endpoint.
+- Empty records persist, new instances register separately, and cumulative counts match their serials.
+- Long-running topology and history are bounded.
+- Automatic camera is continuous; each intake has repeatable, varying transforms.
+- Rightward and upward dragging move a front-side point in the corresponding screen direction.
+- Optional mouse/touch arbitration, cancellation, bounded camera and reset tested.
+- Label visibility checked across 320×568, 390×844, 768×1024, 1188×762, 1440×1000 and 844×390.
+- Pause, reduced-motion, hidden-tab/dialog suspension and scoped iOS callout CSS checked.
 
-- Inspect contour peeling, curved filament trails, orbital endpoint families and faint structural echoes at multiple phases. Each remains bounded and low-contrast.
-- Drag a model area: the whole 3D view rotates, without a tap ripple or accidental hold. Wheel zoom and Reset View work.
-- Tap visible wire geometry: a local ripple appears and responds under the current camera projection.
-- Long-press: gather only the selected model; release smoothly. Move after a hold to switch to orbit without leaving gathering active.
-- Two-pointer sequences: pan/pinch; second pointer cancels a hold; lifting a finger never triggers a spurious tap. Unit tests cover these sequences; physical multi-touch remains a separate device check.
-- While automatic motion is paused, rotate/zoom and gather/release with the keyboard. Escape cancels.
-- Verify computed canvas callout/selection/touch-action suppression while About retains text selection. A physical iOS check is still needed to verify the native callout on an actual device.
+## Visual and runtime validation
+
+Actual renderer output inspected at the source, intermediate reduction and empty-record stages, on desktop and portrait-phone projections. Original holes are preserved; solid facets are actual source triangles. Near-empty frames retain their fixed registration volumes rather than shrinking the composition to fit.
+
+A local Node benchmark averaged approximately 4.9 ms per frame for geometry and draw-call preparation. This excludes browser rasterization and is not a physical-phone performance claim.
+
+The published GitHub Pages build is the supported browser QA route. Physical iOS native callout behavior and physical multi-touch have not been tested; pointer arbitration and CSS scoping have automated coverage. No local-preview security restrictions were bypassed.

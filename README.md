@@ -1,34 +1,26 @@
-# 相互成形 / In Formation.
+# 全部保留 / All Assets Retained.
 
-An autonomous, continuously running web artwork. Five original sculptures have independent, seeded lifecycles: they rest, shed individual edges into strokes and endpoint dots, drift through different quiet fields, and occasionally re-form. No click or gesture is needed. Optional touch, mouse and keyboard controls let the visitor move through the field and briefly affect it.
+An autonomous web artwork in the form of a fictional retention procedure. Five actual source sculptures are registered, then repeatedly quantized, merged and reduced. Their geometry reaches zero while their numbered records and original bounding volumes remain. Further source copies enter as new records with different deterministic placements, sizes and rotations.
 
-The visual language is black-and-white line drawing, archival typography and open space. There is no common ribbon, synchronized loop, floor grid, countdown, score or required gesture.
+The contradiction is performed by the geometry and register, not by a score. There is no AI judgement, quality metric, visitor task, or claim that the source files are destroyed.
 
-## Independent, continuously changing processes
+## The procedure
 
-A fresh random seed is generated once per page visit. Each sculpture then receives its own reproducible sequence of rest, release, drift, return and re-formation intervals. Different fields spread fragments upward, outward, around an open center, across a plane, or softly downward. These choices vary across lifecycles and visits.
+Each intake begins with the original 5,789 crease/boundary edges. Original coordinates are normalized uniformly per sculpture. Successively coarser grids move the surviving vertices continuously to their nearest grid points. At each commit, duplicate edges and zero-length edges are removed. Each stage starts from the previous stage, so discarded topology never resurrects within an instance.
 
-Each original edge has a separate release delay, destination, orientation, fading curve and tendency to dissolve into endpoint dots. Only a sparse selection remains visible during full dispersal, leaving room around the marks. Slow continuous oscillations move the fragments; there is no per-frame random noise or jitter. New random choices are introduced only while the relevant sculpture has fully re-formed, so boundaries remain continuous.
+After approximately one minute, the five current instances have no model edges or nondegenerate faces. Empty records remain for 12 seconds, followed by an explicit source-copy reload notice. New instances arrive separately in the next intake. The current effective-edge count is the sum of actual `activeEdges` arrays. Registration counts increase only when a new numbered instance enters. Empty historical records are represented by deterministic serial numbers; only the most recent history layer is drawn, keeping memory and rendering bounded.
 
-The original forms reappear at their own times. There is no shared period, countdown, abrupt reset or demand to interact. The first ten seconds already include a visible release.
+Black and gray facets are sampled original mesh triangles, never convex hulls or invented caps. Their vertices undergo the same quantization and degenerate faces are discarded. Thin bounding frames are registry annotations and are not included in model edge counts. A narrow record strip and in-space identifiers continue to operate normally as the scene becomes empty.
 
-Four complementary layers enrich the independent processes: contours peeled from real geometry cross-sections, curved filament trails, small orbital point families, and faint structural echoes. Perspective, slow parallax and depth-dependent line weights create foreground/background separation without color or visual clutter.
+## Watching and optional inspection
 
-The small controls are Pause/Play, Reset View and About. Reduced-motion preference opens a fully formed still composition with an explicit Play option. Hidden tabs and the About dialog suspend the process and resume without a time jump.
+The camera follows a slow continuous path automatically. No interaction is needed to see the full work. Optional one-finger/mouse dragging rotates the actual projected scene, in the natural direct-manipulation direction. Two fingers pan and pinch-zoom; right mouse dragging pans, and the wheel zooms. These actions change only the view, never the retention procedure.
 
-## Optional interaction
+After eight seconds without inspection, automatic camera movement resumes and manual offsets blend away smoothly. Pause stops both the procedure and automatic camera; manual inspection remains available. Reset View returns to the automatic view. Keyboard arrows rotate, Shift+arrows pan, +/− zoom, Home resets, and Space pauses/plays.
 
-- One finger or left mouse drag: rotate the actual projected 3D view.
-- Two fingers: pan and pinch to zoom. Right mouse drag pans; the wheel zooms.
-- Tap a visible model: a spatial ripple gently moves nearby fragments.
-- Hold a visible model: its lines gather into the original form. Release returns smoothly to the current autonomous process.
-- Adding a second finger cancels a hold before starting pan/zoom. Pointer cancellation, hidden tabs and focus loss release any hold safely.
-- Pausing stops automatic evolution while camera controls and direct responses remain available.
-- Keyboard: arrows rotate, Shift+arrows pan, +/− zoom, Home resets the view. 1–5 select a sculpture, Enter ripples, G gathers/releases, Escape releases, Space pauses/plays.
+The iOS callout and selection suppression is scoped to the canvas and decorative overlays. Explanation text remains selectable. Reduced-motion preference starts the work paused. Hidden tabs and the explanation dialog suspend execution without skipping unseen time. There is no rapid flashing or full-screen strobe.
 
-Selection and the iOS long-press callout are suppressed only on the canvas and its decorative overlays. About text remains selectable and copyable. Reduced-motion preference suppresses ripple displacement and makes gathering immediate.
-
-## Five original sculptures
+## Assets
 
 - Memory Aperture / 记忆孔径
 - Resonance Garden / 共振花园
@@ -36,19 +28,13 @@ Selection and the iOS long-press callout are suppressed only on the canvas and i
 - Echo Chamber / 回声室
 - Phase Bloom / 相位花
 
-All five actual geometry groups are retained. `public/models/sculpture-wireframes.json` contains 5,789 original crease/boundary segments (about 285 kB raw). Coplanar triangulation and microscopic bevel detail are simplified, not replaced with invented models. Each sculpture’s reformed interval reproduces its original edge set up to a rigid placement and small uniform breathing scale.
+The original `models/three-gorges.glb` is unchanged. Its legacy filename and repository name do not describe a dam reconstruction. `models/sculpture-wireframes.json` contains 5,789 actual crease/boundary edges; `models/sculpture-faces.json` contains 2,000 actual source triangles. Reproducible extraction scripts and asset notes are included under `scripts/` in the source package. The original Blender project is retained in the repository's `artwork/` directory. Earlier artwork versions remain in Git history.
 
-`public/models/three-gorges.glb` is the unchanged original five-sculpture asset. The inherited repository and GLB names come from an earlier experiment; this is not a dam reconstruction, survey or historical simulation. The original Blender project remains in the repository's `artwork/` directory. Previous versions remain in Git history.
+## Runtime and development
 
-## Runtime
+Canvas 2D projects the three-dimensional geometry, so WebGL/GPU support is not required. Phone and desktop compositions use the same process with different spatial framing. There is no backend, analytics, upload, external font, browser storage, runtime CDN, audio, or AI call. State lasts only for the current page visit.
 
-Canvas 2D projects real three-dimensional geometry. It works without WebGL or a GPU-specific rendering path. Responsive framing recomputes the complete visible geometry bounds so every phase stays inside the artwork area on portrait phones and desktop screens.
-
-There is no backend, analytics, account, data collection, upload, browser storage, external font, runtime CDN or audio. State exists only in memory in the current page.
-
-## Develop and publish
-
-Use Node.js 22.12+ or 24+.
+Use Node.js 22.12+ or 24+. From the `source/` folder:
 
 ```sh
 npm ci
@@ -57,22 +43,4 @@ npm run check
 npm run preview
 ```
 
-`npm run check` runs the state/geometry/renderer/packaging tests and produces `dist/`. Serve over HTTP rather than opening a local file directly.
-
-For GitHub Pages, production files are at the repository root and editable source is under `source/`. Configure Pages to deploy `main` / `/(root)`. To update: build inside `source/`, replace root production files with the new `source/dist/` contents, retain `.nojekyll`, original models and `artwork/`. Do not publish node_modules or local test output.
-
-## Files
-
-- `src/simulation.js`: seeded independent lifecycles, edge release and dispersal fields
-- `src/renderer.js`: depth-aware stroke/dot rendering, camera projection, picking and automatic framing
-- `src/effects.js`: contour sections, curved trails, orbital arcs and echoes
-- `src/camera.js`: bounded orbit, pan and zoom
-- `src/gestures.js`: pure pointer gesture arbitration
-- `src/main.js`: automatic playback, pause, motion preference and About dialog
-- `src/style.css`: responsive monochrome layout
-- `scripts/extract-wireframes.py`: reproducible GLB-to-edge conversion
-- `scripts/WIREFRAME-ASSETS.md`: asset normalization, schema and tolerances
-- `tests/`: random-seed repeatability, independent phases, reformation, continuity, sparsity and framing checks
-- `QA.md`: browser verification checklist
-
-No license is implied for the original artwork or application code. Build-generated dependency notices are retained separately.
+`npm run check` runs tests and builds `dist/`. The static production package is deployed to the existing GitHub Pages site with relative URLs. Original model source files are supplied alongside the runnable source. This is an artwork depicting a fictional procedure, not an archival tool or a recommendation for real preservation work.

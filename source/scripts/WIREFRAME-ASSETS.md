@@ -51,3 +51,26 @@ to these local coordinates without loading WebGL or parsing the GLB at runtime.
 Verified with Python 3, NumPy 2.3.5 and SciPy 1.17.0. The converter asserts the
 five-group count, per-group segment budget, finite/nonzero segments, bounds
 containment and normalized extent before writing.
+
+## Sparse original face accents
+
+```sh
+python3 scripts/extract-faces.py
+```
+
+This reads the unchanged GLB plus wireframe normalization metadata and creates
+`public/models/sculpture-faces.json`. Each group has the same ID, bottom-center,
+scale and bounds, with a flat `triangles` buffer containing nine coordinates per
+triangle and `faceCount: 400`. Add the group center exactly as for wire edges.
+
+The 2,000 triangles are deterministic samples of actual original GLB triangles,
+weighted toward larger areas and balanced across original material mesh parts.
+They are sparse accents, not a complete surface approximation. The converter
+never makes convex hulls, fills holes, invents caps, merges face triangles, or
+changes the original GLB or wireframe asset. Its output is about 148 KB raw or
+33 KB gzip. `face-extraction-report.json` records counts and validation results.
+
+The Data Cloud's earlier wire asset simplifies microscopic bevel corners;
+these face samples retain actual original vertex positions. Most vertices
+therefore coincide directly, while a few cloud bevel vertices differ slightly
+from simplified edge endpoints. Apply the same display quantization to both.
