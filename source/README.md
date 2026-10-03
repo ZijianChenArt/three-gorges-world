@@ -1,6 +1,6 @@
 # 相互成形 / In Formation.
 
-An autonomous, continuously running web artwork. Five original sculptures have independent, seeded lifecycles: they rest, shed individual edges into strokes and endpoint dots, drift through different quiet fields, and occasionally re-form. No click or gesture is needed.
+An autonomous, continuously running web artwork. Five original sculptures have independent, seeded lifecycles: they rest, shed individual edges into strokes and endpoint dots, drift through different quiet fields, and occasionally re-form. No click or gesture is needed. Optional touch, mouse and keyboard controls let the visitor move through the field and briefly affect it.
 
 The visual language is black-and-white line drawing, archival typography and open space. There is no common ribbon, synchronized loop, floor grid, countdown, score or required gesture.
 
@@ -12,7 +12,21 @@ Each original edge has a separate release delay, destination, orientation, fadin
 
 The original forms reappear at their own times. There is no shared period, countdown, abrupt reset or demand to interact. The first ten seconds already include a visible release.
 
-The two controls are Pause/Play and About. Reduced-motion preference opens a fully formed still composition with an explicit Play option. Hidden tabs and the About dialog suspend the process and resume without a time jump.
+Four complementary layers enrich the independent processes: contours peeled from real geometry cross-sections, curved filament trails, small orbital point families, and faint structural echoes. Perspective, slow parallax and depth-dependent line weights create foreground/background separation without color or visual clutter.
+
+The small controls are Pause/Play, Reset View and About. Reduced-motion preference opens a fully formed still composition with an explicit Play option. Hidden tabs and the About dialog suspend the process and resume without a time jump.
+
+## Optional interaction
+
+- One finger or left mouse drag: rotate the actual projected 3D view.
+- Two fingers: pan and pinch to zoom. Right mouse drag pans; the wheel zooms.
+- Tap a visible model: a spatial ripple gently moves nearby fragments.
+- Hold a visible model: its lines gather into the original form. Release returns smoothly to the current autonomous process.
+- Adding a second finger cancels a hold before starting pan/zoom. Pointer cancellation, hidden tabs and focus loss release any hold safely.
+- Pausing stops automatic evolution while camera controls and direct responses remain available.
+- Keyboard: arrows rotate, Shift+arrows pan, +/− zoom, Home resets the view. 1–5 select a sculpture, Enter ripples, G gathers/releases, Escape releases, Space pauses/plays.
+
+Selection and the iOS long-press callout are suppressed only on the canvas and its decorative overlays. About text remains selectable and copyable. Reduced-motion preference suppresses ripple displacement and makes gathering immediate.
 
 ## Five original sculptures
 
@@ -50,7 +64,10 @@ For GitHub Pages, production files are at the repository root and editable sourc
 ## Files
 
 - `src/simulation.js`: seeded independent lifecycles, edge release and dispersal fields
-- `src/renderer.js`: sparse stroke/dot rendering, trait caching and automatic framing
+- `src/renderer.js`: depth-aware stroke/dot rendering, camera projection, picking and automatic framing
+- `src/effects.js`: contour sections, curved trails, orbital arcs and echoes
+- `src/camera.js`: bounded orbit, pan and zoom
+- `src/gestures.js`: pure pointer gesture arbitration
 - `src/main.js`: automatic playback, pause, motion preference and About dialog
 - `src/style.css`: responsive monochrome layout
 - `scripts/extract-wireframes.py`: reproducible GLB-to-edge conversion

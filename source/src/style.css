@@ -2,3 +2,14 @@
 @media(max-width:650px){.masthead{top:26px;left:23px;right:23px;font-size:8px;letter-spacing:1px}.caption{left:27px;bottom:111px;right:23px}h1{display:block;font-size:28px;letter-spacing:5px}h1 span{display:block;font-size:34px;margin-top:9px;letter-spacing:-.6px}.caption p{font-size:8px;letter-spacing:1px;margin-top:13px}.footer{left:23px;right:23px;min-height:68px}.edition{font-size:7px;letter-spacing:1px}nav{gap:20px}nav button{font-size:10px}dialog{padding:38px 28px}dialog h2{font-size:24px}dialog>p:not(.eyebrow){font-size:11px}}
 @media(max-height:530px) and (min-width:651px){.masthead{top:18px}.caption{bottom:84px}h1{font-size:23px}h1 span{font-size:29px}.caption p{margin-top:9px}.footer{min-height:57px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important}}
+
+/* Only the interactive stage and noninteractive overlays suppress iOS callouts. */
+#world,.caption,.masthead{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#world{touch-action:none;cursor:grab;outline:none}
+#world:active{cursor:grabbing}
+#world:focus-visible{outline:1px solid #aaa;outline-offset:-8px}
+.gesture-hint{font-size:8px!important;letter-spacing:.7px!important;margin-top:8px!important;color:#888!important;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.touch-hint{display:none}.controls-guide{font-size:10px;line-height:1.9;color:#666;border-top:1px solid #bbb;padding-top:12px;margin-top:22px}
+#about{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+@media(pointer:coarse){.desktop-hint{display:none}.touch-hint{display:inline}}
+@media(max-width:650px){.edition{max-width:80px;font-size:6px;letter-spacing:.5px;line-height:1.5}nav{gap:14px}nav button{min-width:44px}.gesture-hint{font-size:7px!important;letter-spacing:0!important}}

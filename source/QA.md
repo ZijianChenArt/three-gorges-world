@@ -12,3 +12,13 @@
 10. Check site-origin console errors. Canvas2D must work without WebGL, audio, external services, pointer gestures or permission prompts.
 
 Automated tests cover seeded reproducibility, variation across seeds and lifecycles, independent timing, individual edge delays, exact model re-formation, continuous lifecycle boundaries, sparse mark budgets, finite/bounded geometry and six responsive sizes. Render proofs do not replace physical-device testing.
+
+## Rich layers and optional gesture regression checks
+
+- Inspect contour peeling, curved filament trails, orbital endpoint families and faint structural echoes at multiple phases. Each remains bounded and low-contrast.
+- Drag a model area: the whole 3D view rotates, without a tap ripple or accidental hold. Wheel zoom and Reset View work.
+- Tap visible wire geometry: a local ripple appears and responds under the current camera projection.
+- Long-press: gather only the selected model; release smoothly. Move after a hold to switch to orbit without leaving gathering active.
+- Two-pointer sequences: pan/pinch; second pointer cancels a hold; lifting a finger never triggers a spurious tap. Unit tests cover these sequences; physical multi-touch remains a separate device check.
+- While automatic motion is paused, rotate/zoom and gather/release with the keyboard. Escape cancels.
+- Verify computed canvas callout/selection/touch-action suppression while About retains text selection. A physical iOS check is still needed to verify the native callout on an actual device.
