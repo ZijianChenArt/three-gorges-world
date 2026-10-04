@@ -15,10 +15,9 @@ export function instancePose(instance,phone=false,{elapsed=0,reducedMotion=false
   let position=[Math.cos(angle)*r,(random(k,10)-.5)*6.4,Math.sin(angle)*r],scale=1.3+random(k,11)*1.55;
   if(s===1){position=[-3.4,.4,4];scale=4.25;}else if(s===2){position=[3.8,1,-4];scale=2.65;}else if(s===3){position=[5.1,-1.9,3];scale=2.25;}
   if(instance.modelIndex===5){
-    // Five opening size bands guarantee small, medium and occasional large
-    // cubes; every actual size and depth is still stable for the intake seed.
+    // All cube bands are tiny scattered accents, with stable seeded sizes.
     const band=s>=6&&s<=10?[.1,.55,.9,.3,.7][s-6]:random(k,41),size=random(k,42);
-    scale=band<.5?.3+size*.3:band<.85?.65+size*.35:1.1+size*.4;
+    scale=band<.5?.055+size*.035:band<.85?.105+size*.045:.17+size*.05;
     const cubeAngle=random(k,43)*Math.PI*2,cubeRadius=3+random(k,44)*6;
     position=[Math.cos(cubeAngle)*cubeRadius,(random(k,45)-.5)*7.6,-1+Math.sin(cubeAngle)*cubeRadius*.82];
   }
@@ -56,15 +55,15 @@ export class ArchivePrint{
     this.renderedSegments=this.overlayOnly?this.fields.reduce((n,f)=>n+f.renderedSegments,0):clippedFields.reduce((n,f)=>n+f.curves.reduce((sum,curve)=>sum+curve.segments.length,0),0);this.renderedPoints=0;
     c.save();c.beginPath();c.rect(0,0,w,h);c.clip();
     // Bounded proxy bundles retain exact closed-record ranges and counts, never hidden live meshes.
-    const bundles=archiveBundles(state,phone?28:64);this.bundleCount=bundles.length;this.bundleRecords=bundles.reduce((n,b)=>n+b.count,0);
+    const bundles=archiveBundles(state,phone?28:64,{originalsOnly:true});this.bundleCount=bundles.length;this.bundleRecords=bundles.reduce((n,b)=>n+b.count,0);
     for(let i=0;i<bundles.length;i++){
       const b=bundles[i],columns=phone?4:8,row=Math.floor(i/columns),x=(i%columns-(columns-1)/2)*(phone?2.2:2.35),origin=[x,3.2-row*.78,-7.8-row*.58],size=.47+Math.min(.22,Math.log2(b.count+1)*.05);
       c.strokeStyle='#bdbab1';c.lineWidth=.45;c.setLineDash([]);c.beginPath();const p=box([size,size*.73,size*.5]).map(q=>q.map((v,j)=>v+origin[j]));for(const[a,d]of BOX_EDGES)worldLine(p[a],p[d]);c.stroke();
       if(b.count>1&&(i%3===0||i===bundles.length-1)){const p=pos(origin);c.fillStyle='#87847c';c.font=`${phone?7:8}px 'Courier New',monospace`;if(p.visible&&p[0]>=0&&p[0]<=w&&p[1]>=0&&p[1]<=h)c.fillText(`×${b.count}`,p[0],p[1]);}
     }
     // Sparse spatial record links remain visible as the viewpoint passes through them.
-    c.strokeStyle='#99978f';c.lineWidth=.45;c.globalAlpha=.38;c.beginPath();for(let i=1;i<prepared.length;i++){const current=prepared[i],prior=prepared.slice(0,i).reduce((best,f)=>Math.hypot(...f.pose.position.map((n,j)=>n-current.pose.position[j]))<Math.hypot(...best.pose.position.map((n,j)=>n-current.pose.position[j]))?f:best,prepared[0]);worldLine(current.pose.position,prior.pose.position);}c.stroke();c.globalAlpha=1;
-    for(const f of prepared){c.strokeStyle=f.phase==='retained'?'#a09d94':'#c5c2b9';c.lineWidth=.5;c.setLineDash([2,4]);c.beginPath();for(const[a,b]of BOX_EDGES)worldLine(f.worldCorners[a],f.worldCorners[b]);c.stroke();}c.setLineDash([]);
+    c.strokeStyle='#99978f';c.lineWidth=.45;c.globalAlpha=.38;c.beginPath();const linked=prepared.filter(f=>f.model.id!=='procedural-cube');for(let i=1;i<linked.length;i++){const current=linked[i],prior=linked.slice(0,i).reduce((best,f)=>Math.hypot(...f.pose.position.map((n,j)=>n-current.pose.position[j]))<Math.hypot(...best.pose.position.map((n,j)=>n-current.pose.position[j]))?f:best,linked[0]);worldLine(current.pose.position,prior.pose.position);}c.stroke();c.globalAlpha=1;
+    for(const f of prepared){if(f.model.id==='procedural-cube')continue;c.strokeStyle=f.phase==='retained'?'#a09d94':'#c5c2b9';c.lineWidth=.5;c.setLineDash([2,4]);c.beginPath();for(const[a,b]of BOX_EDGES)worldLine(f.worldCorners[a],f.worldCorners[b]);c.stroke();}c.setLineDash([]);
     const triangles=[],triangleBudget=Math.max(0,Math.floor(Math.min(this.faceBudget,phone?980:2400))),facetLimit=Math.max(42,Math.floor(Math.min(this.faceBudget,phone?980:2400)/Math.max(1,frames.length)));
     const yaw=-.47+this.camera.yaw,tilt=.43+this.camera.pitch,view=[Math.sin(yaw)*Math.cos(tilt),Math.sin(tilt),Math.cos(yaw)*Math.cos(tilt)];
     faceLoop:for(const f of (this.overlayOnly?[]:prepared)){const stride=Math.max(1,Math.ceil(f.model.faces.length/facetLimit));for(let fi=f.instance.serial%stride;fi<f.model.faces.length;fi+=stride){const face=f.model.faces[fi],sourceCenter=[0,1,2].map(j=>face.reduce((n,i)=>n+f.model.stages[0].vertices[i][j],0)/3),patch=patchIndex(sourceCenter),layer=phaseInfo(f.instance.key,patch,state.elapsed,{reducedMotion:state.reducedMotion});if(layer.surfaceAlpha<.045)continue;const local=face.map(i=>f.vertices[i]);if(triangleArea(...local)<.00002)continue;const world=face.map(i=>f.world[i]),normal=normalOf(world),localNormal=normalOf(local);if(f.model.id!=='procedural-cube'&&Math.abs(localNormal[1])/(Math.hypot(...localNormal)||1)>.78)continue;const clipped=triangulateClippedPolygon(clipper.polygon(world,local));if(!clipped.length)continue;const center=world[0].map((v,j)=>(v+world[1][j]+world[2][j])/3),style=shadeFacet({material:f.material,normal,view,center,sourceCenter,sourceBounds:f.model.bounds,elapsed:state.elapsed,seed:f.instance.key});style.alpha*=layer.surfaceAlpha;for(const part of clipped){if(triangles.length>=triangleBudget)break faceLoop;const q=part.screen;triangles.push({q,world:part.world,local:part.local,style,material:f.material,depth:q.reduce((n,p)=>n+p[2],0)/3,fi,frame:f});}}}
@@ -79,7 +78,7 @@ export class ArchivePrint{
       c.globalAlpha=1;
     }
     c.restore();c.globalAlpha=1;this.labels=[];
-    for(const f of prepared){const visible=BOX_EDGES.flatMap(([a,b])=>clipper.segment(f.worldCorners[a],f.worldCorners[b])?.screen||[]);if(!visible.length)continue;const p=visible.reduce((a,b)=>a[1]<b[1]?a:b),x=Math.max(18,Math.min(w-(phone?111:151),p[0]+9)),initialY=Math.max(v.top-20,Math.min(v.bottom-5,p[1]-10)),y=placeLabelY(x,initialY,phone?110:146,this.labels,v.top-20,v.bottom-5);if(y===null)continue;
+    for(const f of prepared){if(f.model.id==='procedural-cube')continue;const visible=BOX_EDGES.flatMap(([a,b])=>clipper.segment(f.worldCorners[a],f.worldCorners[b])?.screen||[]);if(!visible.length)continue;const p=visible.reduce((a,b)=>a[1]<b[1]?a:b),x=Math.max(18,Math.min(w-(phone?111:151),p[0]+9)),initialY=Math.max(v.top-20,Math.min(v.bottom-5,p[1]-10)),y=placeLabelY(x,initialY,phone?110:146,this.labels,v.top-20,v.bottom-5);if(y===null)continue;
       c.strokeStyle='#1b1b17';c.lineWidth=.6;c.beginPath();line(p,[x,y+3]);line([x-3,y],[x+3,y]);c.stroke();c.fillStyle='#f0f0f0';c.fillRect(x+5,y-12,phone?105:143,phone?20:24);c.fillStyle='#191916';c.font=`${phone?10:10.5}px 'Courier New',monospace`;c.fillText(`A—${String(f.serial).padStart(3,'0')} / ${f.edgeCount}`,x+8,y);if(!phone){c.font="7px 'Courier New',monospace";c.fillStyle='#65635c';const field=this.fields.find(item=>item.serial===f.serial);c.fillText(`l=${field?.renderedSegments||0}`,x+8,y+10);}this.labels.push({x,y,id:f.model.id,serial:f.serial});
     }
 

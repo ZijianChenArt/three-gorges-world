@@ -32,7 +32,16 @@ export function desiredDensity(elapsed,seed,budget){
   const growth=10+Math.floor(Math.sqrt(Math.max(0,elapsed)/1.4));
   return Math.min(budget,growth);
 }
-export function archiveBundles(state,limit=48){
+export function archiveBundles(state,limit=48,{originalsOnly=false}={}){
+  if(originalsOnly&&state.includeCubes){
+    // Original-only history is noncontiguous: retain exact totals without
+    // inventing serial ranges or keeping an ever-growing retired-record list.
+    const total=state.closedOriginals,groups=Math.max(0,Math.floor(limit)),result=[];
+    if(!total||!groups)return result;
+    const width=Math.max(1,Math.ceil(total/groups));
+    for(let remaining=total;remaining>0;remaining-=width)result.push({count:Math.min(width,remaining)});
+    return result;
+  }
   if(!state.closed)return[];
   const width=Math.max(1,Math.ceil(state.records/limit)),active=new Set(state.instances.map(i=>i.serial)),result=[];
   for(let from=1;from<=state.records;from+=width){const to=Math.min(state.records,from+width-1);let count=to-from+1;for(const id of active)if(id>=from&&id<=to)count--;if(count)result.push({from,to,count});}
@@ -40,13 +49,13 @@ export function archiveBundles(state,limit=48){
 }
 function admit(state,at){const item=makeInstance(++state.records,at,state.seed,{includeCubes:state.includeCubes});state.instances.push(item);return item;}
 export function createState({reducedMotion=false,seed=271828,budget=24,initialCount=10,includeCubes=false}={}){
-  const state={includeCubes:Boolean(includeCubes),elapsed:0,paused:reducedMotion,reducedMotion,seed:seed>>>0,budget:clamp(Math.round(budget),6,32),records:0,closed:0,instances:[],history:[],nextArrival:2.5,arrivalAttempt:0};
+  const state={includeCubes:Boolean(includeCubes),elapsed:0,paused:reducedMotion,reducedMotion,seed:seed>>>0,budget:clamp(Math.round(budget),6,32),records:0,closed:0,closedOriginals:0,closedCubes:0,instances:[],history:[],nextArrival:2.5,arrivalAttempt:0};
   for(let i=0;i<Math.min(state.budget,Math.max(6,initialCount));i++)admit(state,0);
   return state;
 }
 export function setBudget(state,budget){state.budget=clamp(Math.round(budget),6,32);}
 function retire(state,at){
-  const remaining=[];for(const item of state.instances){if(item.end<=at){state.closed++;state.history.push(item);}else remaining.push(item);}
+  const remaining=[];for(const item of state.instances){if(item.end<=at){state.closed++;if(item.modelIndex===5)state.closedCubes++;else state.closedOriginals++;state.history.push(item);}else remaining.push(item);}
   state.instances=remaining;state.history=state.history.slice(-8);
 }
 export function advance(state,seconds){

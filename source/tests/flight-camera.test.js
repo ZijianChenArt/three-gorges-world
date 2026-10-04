@@ -47,8 +47,8 @@ test('macrocycle alternates real panoramic distance with entry into the occupied
       }
       if(phase==='overview'){
         wide++;furthest=Math.max(furthest,distance);
-        assert.ok(!contains(bounds,eye),'overview is physically outside the cluster');
-        assert.ok(camera.distance>(phone?18:11),'overview has wide physical camera distance');
+        if(t>=44)assert.ok(!contains(bounds,eye),'later overview is physically outside the cluster');
+        assert.ok(camera.distance>(phone?13:8),'opening may intentionally enter a partial composition');
       }
       assert.ok(eye[1]>-7.7,'always above the lower safety plane');
     }
@@ -180,7 +180,7 @@ test('desktop and phone keep actual surviving source geometry in view throughout
           const q=project(item.position,camera),x=view.cx+q[0]*view.scale,y=view.cy+q[1]*view.scale;
           return q.visible&&x>0&&x<w&&y>view.top&&y<view.bottom;
         });
-        assert.ok(visibleCenters.length>=scene.instances.length*.75,'panorama shows a clear majority of actual model centers');
+        if(t>=44)assert.ok(visibleCenters.length>=scene.instances.length*.75,'later panorama shows a clear majority of actual model centers');
       }
       if(phase==='interior'){
         interiorFrames++;if(near<9)interiorNear++;
@@ -191,7 +191,7 @@ test('desktop and phone keep actual surviving source geometry in view throughout
         const q=project(item.position,camera),x=view.cx+q[0]*view.scale,y=view.cy+q[1]*view.scale;
         if(!q.visible||x<0||x>w||y<view.top||y>view.bottom)continue;
         const span=length(difference(screen(shifted(item.position,basis.right,item.scale),camera,w,h),screen(shifted(item.position,basis.right,-item.scale),camera,w,h)))/w;
-        if(phase==='overview')overviewScale=Math.max(overviewScale,span);
+        if(phase==='overview'&&t>=44)overviewScale=Math.max(overviewScale,span);
         if(phase==='interior')interiorScale=Math.max(interiorScale,span);
       }
     }
@@ -255,4 +255,4 @@ test('Three perspective and orthographic projections match Canvas including off-
   }
 });
 
-test('opening panorama is about22% closer and blends back continuously as the route proceeds',()=>{for(const phone of[false,true]){const scene=sceneAt(0,phone),camera=automaticCamera(0,phone,scene),later=automaticCamera(144,phone,scene);assert.ok(camera.distance<later.distance*.86);for(const t of[0,5,16,32,44]){const a=cameraBasis(automaticCamera(t,phone,scene)),b=cameraBasis(automaticCamera(t+.01,phone,scene));assert.ok(length(difference(a.eye,b.eye))<.04);}}});
+test('opening uses a deliberately closer partial composition and blends back continuously as the route proceeds',()=>{for(const phone of[false,true]){const scene=sceneAt(0,phone),camera=automaticCamera(0,phone,scene),later=automaticCamera(144,phone,scene);assert.ok(camera.distance<later.distance*.72);for(const t of[0,5,16,32,44]){const a=cameraBasis(automaticCamera(t,phone,scene)),b=cameraBasis(automaticCamera(t+.01,phone,scene));assert.ok(length(difference(a.eye,b.eye))<.04);}}});

@@ -14,3 +14,51 @@ test('pause and reduced-motion stop intake and processing',()=>{const s=createSt
 test('all coordinates remain finite and topology commits continuously',()=>{for(const m of models){const i=makeInstance(m.index+1,0);for(let k=0;k<STEPS.length;k++){const t=i.intro+k*i.stepTime+i.stepTime*.84,a=instanceFrame(m,i,t-1e-5),b=instanceFrame(m,i,t+1e-5);for(let j=0;j<a.vertices.length;j++)for(let n=0;n<3;n++){assert.ok(Number.isFinite(a.vertices[j][n]));assert.ok(Math.abs(a.vertices[j][n]-b.vertices[j][n])<1e-6);}}}});
 
 test('PBR startup offers many more real instances immediately',()=>{assert.equal(createState({budget:26,initialCount:12}).instances.length,12);assert.equal(createState({budget:16,initialCount:8}).instances.length,8);const s=stateAt(600,{budget:26,initialCount:12});assert.ok(s.instances.length>12);assert.ok(s.instances.length<=26);});
+
+test('mixed intake retains exact original and cube retirement totals over a day with bounded count-only bundles',()=>{
+  for(const seed of[0,7331,271828]){
+    const s=createState({includeCubes:true,seed,budget:16,initialCount:10});
+    let checkedRecords=0,registeredOriginals=0,registeredCubes=0;
+    for(const time of[0,60,600,3600,86400]){
+      advance(s,time-s.elapsed);
+      for(;checkedRecords<s.records;checkedRecords++){
+        const item=makeInstance(checkedRecords+1,0,seed,{includeCubes:true});
+        if(item.modelIndex===5)registeredCubes++;else registeredOriginals++;
+      }
+      const presentCubes=s.instances.filter(i=>i.modelIndex===5).length;
+      assert.equal(s.closedCubes,registeredCubes-presentCubes);
+      assert.equal(s.closedOriginals,registeredOriginals-(s.instances.length-presentCubes));
+      assert.equal(s.closed,s.closedOriginals+s.closedCubes);
+      assert.equal(s.records,s.closed+s.instances.length);
+      assert.ok(s.instances.length<=16);assert.ok(s.history.length<=8);
+      for(const limit of[1,7,28,64]){
+        const bundles=archiveBundles(s,limit,{originalsOnly:true});
+        assert.ok(bundles.length<=limit);
+        assert.equal(bundles.reduce((n,b)=>n+b.count,0),s.closedOriginals);
+        for(const bundle of bundles){assert.deepEqual(Object.keys(bundle),['count']);assert.ok(Number.isInteger(bundle.count)&&bundle.count>0);}
+        const all=archiveBundles(s,limit);
+        assert.ok(all.length<=limit);
+        assert.equal(all.reduce((n,b)=>n+b.count,0),s.closed);
+        assert.deepEqual(archiveBundles(s,limit,{originalsOnly:false}),all);
+        for(const b of all)assert.equal(b.count,b.to-b.from+1-s.instances.filter(i=>i.serial>=b.from&&i.serial<=b.to).length);
+      }
+      if(time>=60){assert.ok(s.closedOriginals>0);assert.ok(s.closedCubes>0);}
+    }
+  }
+});
+
+test('original-only filtering preserves legacy serial-range bundles when cubes are disabled',()=>{
+  for(const time of[0,60,600,86400]){
+    const s=stateAt(time,{seed:7331,budget:14});
+    assert.equal(s.closedOriginals,s.closed);assert.equal(s.closedCubes,0);
+    for(const limit of[1,12,64])assert.deepEqual(archiveBundles(s,limit,{originalsOnly:true}),archiveBundles(s,limit));
+  }
+});
+
+test('retirement partition counts each original and cube once, independently of advance subdivision',()=>{
+  const a=createState({includeCubes:true,seed:7331}),b=createState({includeCubes:true,seed:7331});
+  advance(a,600);for(let n=0;n<6000;n++)advance(b,.1);
+  assert.equal(a.closedOriginals,b.closedOriginals);assert.equal(a.closedCubes,b.closedCubes);
+  assert.equal(a.closed,a.closedOriginals+a.closedCubes);
+  assert.deepEqual(archiveBundles(a,28,{originalsOnly:true}),archiveBundles(b,28,{originalsOnly:true}));
+});

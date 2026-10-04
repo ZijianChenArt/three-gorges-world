@@ -1,8 +1,13 @@
-# Release validation — 5.6.1
+# Release validation — 5.6.2
 
-206 automated tests pass, followed by the production Vite build.
+210 automated tests pass, followed by the production Vite build.
 
 ## This revision
+
+- All procedural cubes are now tiny accents (0.055–0.22 source scale) and have no visible ID labels, leader links, backing rectangles or registration boxes.
+- Retired-cube totals stay exact in bounded scalar counters. Visual historical bundles include original sculptures only, without invented serial ranges.
+- The opening is intentionally closer and may crop foreground objects. Projection tests no longer require the first composition to fit all models; continuity and readable surviving geometry remain checked.
+
 
 - One shared procedural cube source participates in actual edge/triangle reduction, registry counts, picking and local response. Initial scenes preserve all five original sources plus five cubes; sizes and admissions are seeded and bounded.
 - The opening is closer, labels are lightly gray-backed, selected colors are more saturated, and all ground effects are removed.

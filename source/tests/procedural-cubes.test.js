@@ -67,8 +67,8 @@ test('cube intake is opt-in, seeded, varied in size and bounded without adding h
     assert.equal(cubes.length,5);assert.equal(state.instances.length,count);
     assert.ok(state.instances.filter(i=>i.modelIndex<5).length<=(phone?8:12));
     const scales=cubes.map(i=>instancePose(i,phone).scale);
-    assert.ok(scales.some(s=>s<.6));assert.ok(scales.some(s=>s>=.65&&s<=1));assert.ok(scales.some(s=>s>=1.1));
-    for(const item of cubes){const pose=instancePose(item,phone);assert.equal(item.materialIndex,WHITE_MATERIAL_INDEX);assert.ok(pose.scale>=.3&&pose.scale<=1.5);assert.ok(pose.position.every(Number.isFinite));}
+    assert.ok(scales.some(s=>s<.09));assert.ok(scales.some(s=>s>=.105&&s<=.15));assert.ok(scales.some(s=>s>=.17));
+    for(const item of cubes){const pose=instancePose(item,phone);assert.equal(item.materialIndex,WHITE_MATERIAL_INDEX);assert.ok(pose.scale>=.055&&pose.scale<=.22);assert.ok(pose.position.every(Number.isFinite));}
     assert.equal(new Set(cubes.map(i=>instancePose(i,phone).position[2])).size,5);
     assert.deepEqual(state,createState({includeCubes:true,initialCount:count,budget,seed}));
   }
@@ -81,7 +81,7 @@ test('cube intake is opt-in, seeded, varied in size and bounded without adding h
     assert.equal(totals.edges,frames.reduce((n,f)=>n+f.edgeCount,0));
     assert.equal(state.records,state.closed+state.instances.length);assert.equal(archiveBundles(state).reduce((n,b)=>n+b.count,0),state.closed);
     for(const i of state.instances.filter(i=>i.modelIndex===5))for(const phone of[false,true]){
-      const pose=instancePose(i,phone,{elapsed:time});assert.ok(pose.scale>=.3&&pose.scale<=1.5);
+      const pose=instancePose(i,phone,{elapsed:time});assert.ok(pose.scale>=.055&&pose.scale<=.22);
       assert.ok(pose.position.every(Number.isFinite));
     }
   }
@@ -119,3 +119,5 @@ test('mixed PBR scene submits exact cube faces once, shares sources, and isolate
   state.elapsed=100;p.draw(state);assert.equal(p.triangleCount,0);assert.equal(p.buckets.size,0);assert.equal(p.rippleMeshes.size,0);
   p.strokes.dispose();for(const m of p.layerMaterials.values())m.dispose();for(const m of p.materials){m.map?.dispose();m.dispose();}
 });
+
+test('tiny cubes render without IDs, leader backings or registration boxes while global counts remain',()=>{let dash=[],registrationBoxes=0;const ctx=new Proxy({setLineDash:v=>{dash=v;},stroke:()=>{if(dash[0]===2&&dash[1]===4)registrationBoxes++;}},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});const r=new ArchivePrint({getContext:()=>ctx},runtime.wireData.groups,runtime.faceData.groups);r.resize(1188,762);const state=createState({includeCubes:true,initialCount:14,budget:26});r.draw(state);assert.ok(r.labels.every(label=>label.id!=='procedural-cube'));assert.equal(registrationBoxes,state.instances.filter(i=>i.modelIndex!==5).length);assert.equal(r.summary.records,state.records);assert.equal(r.summary.edges,r.frames.reduce((n,f)=>n+f.edgeCount,0));const old=stateAt(600,{includeCubes:true,budget:16});r.draw(old);assert.equal(r.bundleRecords,old.closedOriginals);assert.equal(old.closed,old.closedOriginals+old.closedCubes);assert.ok(r.labels.every(label=>label.id!=='procedural-cube'));});
