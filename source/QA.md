@@ -1,11 +1,23 @@
-# Release validation — 4.1.0
+# Release validation — 5.0.0
 
-44 automated tests passed, followed by the production Vite build.
+66 automated tests pass, followed by the production Vite build.
 
-Covered: all five exact source edge sets; real coordinate movement; monotonic per-instance topology loss; all facets degenerate at zero geometry; independent seeded source/material/timing choices; update-subdivision reproducibility; continuous intake and rising density; exact live/closed/total record accounting; exact bundle counts excluding live records; adaptive intake without premature deletion; bounded state through a simulated24 hours; pause and reduced-motion; natural camera drag direction; stable optional gesture arbitration; six viewport projections and readable labels.
+## Verified in code and actual-asset tests
 
-Material tests cover four distinct monochrome styles, view-dependent metallic response, view-independent matte shading, low-alpha translucency, hatches clipped to actual projected triangles and source-space inspection bands, invalid input handling and strict hatch budgets. No random samples occur inside frame shading.
+- Every one of the28,384 original GLB triangles from29 mesh parts is preserved initially, with no hulls, invented caps or face sampling in the PBR path.
+- Full-GLB normalization agrees with the structural-edge coordinates. Nested transforms, including reflections, preserve correct winding and normals.
+- Previous-stage double-precision quantization avoids Float32 half-grid drift. Surviving face indices decline monotonically, and all five sources end with zero faces.
+- One GPU morph target per transition shares immutable position/normal attributes across instances. Per-instance morph weights and matrices are independent.
+- Actual render-bucket tests exercise full GLB stage selection, instanced counts, retirement and the zero-rendered-mesh endpoint without claiming GPU execution.
+- Physical metal/roughness/transmission/IOR/thickness properties are tested. The PBR camera numerically matches the registry-overlay projection, including manual camera offsets.
+-12 desktop /8 phone initial instances, higher adaptive budgets, faster continuous intake, truthful current/closed/total accounting and bounded24-hour state are tested.
+- Existing optional gestures, natural drag directions, cancellation, reduced motion, pause and scoped iOS callout behavior retain coverage.
+- Six viewport projections keep labels on screen. Canvas fallback remains explicitly identified.
 
-Actual renderer proofs were inspected at 0, 20, 50, 120 and300 seconds for desktop and portrait-phone compositions, covering sparse and dense states and the accumulated distant archive. A local Node benchmark averaged approximately8.4 ms/frame for geometry and draw-call preparation across a six-minute sample. It excludes browser rasterization and is not a physical-phone performance claim.
+A local preparation benchmark constructed all shared full-mesh stages in approximately225ms, with13.85MiB of unique typed geometry/index buffers. This excludes driver allocations, environment/shadow/transmission buffers, shader compilation and GPU rendering; it is not a phone performance claim.
 
-The published GitHub Pages build is used for browser verification. Physical iOS callout behavior and physical multi-touch have not been tested; their pointer arbitration and scoped CSS have automated coverage. No local-preview access restrictions were bypassed.
+## Verification limits
+
+The available cloud browser has no usable WebGL2 GPU renderer. Therefore the real PBR appearance, shader execution, physical glass rendering, shadow quality and GPU frame rate have NOT been visually verified on hardware. Published-browser QA validates the compatibility path and normal UI/process behavior only. Tests of Three.js objects and shader configuration are not presented as rendered GPU evidence.
+
+Physical iOS callout behavior and real multi-touch have not been tested. No GPU restrictions, local-preview blocks or browser security controls were bypassed.

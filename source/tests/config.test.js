@@ -7,4 +7,6 @@ test('no private data, analytics, requests, storage, or AI calls',()=>{const s=r
 test('pause, reduced motion, interruption and about handling are present',()=>{const m=read('src/main.js');for(const x of ['prefers-reduced-motion','visibilitychange','document.hidden||about.open','state.paused','cancelGestures'])assert.ok(m.includes(x));});
 test('Pages-relative paths stay supported',()=>{assert.ok(read('vite.config.js').includes("base: './'"));assert.ok(existsSync(new URL('../public/.nojekyll',import.meta.url)));});
 
-test('ongoing random intake and adaptive budgeting are explicit',()=>{const s=read('src/main.js');for(const x of ['crypto.getRandomValues','setBudget','drawCost','dataset.closed','dataset.materials'])assert.ok(s.includes(x));assert.ok(read('index.html').includes('风格化'));});
+test('ongoing random intake and adaptive budgeting are explicit',()=>{const s=read('src/main.js');for(const x of ['crypto.getRandomValues','setBudget','drawCost','dataset.closed','dataset.materials'])assert.ok(s.includes(x));assert.ok(read('index.html').includes('物理金属'));});
+
+test('real PBR path is primary and compatibility fallback is explicitly disclosed',()=>{const m=read('src/main.js'),p=read('src/pbr-renderer.js');for(const x of ['webgl2Available','PbrArchive.create','兼容线稿模式','canvas-fallback'])assert.ok(m.includes(x));for(const x of ['MeshPhysicalMaterial','PMREMGenerator','RoomEnvironment','InstancedMesh','setMorphAt','PCFSoftShadowMap'])assert.ok(p.includes(x));assert.ok(read('index.html').includes('设备不支持时会明确标注'));});

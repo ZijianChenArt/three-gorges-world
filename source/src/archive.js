@@ -24,7 +24,7 @@ export function makeInstance(serial,started,seed=271828){
 }
 export function desiredDensity(elapsed,seed,budget){
   // The detailed foreground grows; older records accumulate separately in bounded bundles.
-  const growth=3+Math.floor(Math.sqrt(Math.max(0,elapsed)/2.8));
+  const growth=10+Math.floor(Math.sqrt(Math.max(0,elapsed)/1.4));
   return Math.min(budget,growth);
 }
 export function archiveBundles(state,limit=48){
@@ -34,12 +34,12 @@ export function archiveBundles(state,limit=48){
   return result;
 }
 function admit(state,at){const item=makeInstance(++state.records,at,state.seed);state.instances.push(item);return item;}
-export function createState({reducedMotion=false,seed=271828,budget=12}={}){
-  const state={elapsed:0,paused:reducedMotion,reducedMotion,seed:seed>>>0,budget:clamp(Math.round(budget),3,16),records:0,closed:0,instances:[],history:[],nextArrival:2.5,arrivalAttempt:0};
-  for(let i=0;i<3;i++)admit(state,0);
+export function createState({reducedMotion=false,seed=271828,budget=24,initialCount=10}={}){
+  const state={elapsed:0,paused:reducedMotion,reducedMotion,seed:seed>>>0,budget:clamp(Math.round(budget),6,32),records:0,closed:0,instances:[],history:[],nextArrival:2.5,arrivalAttempt:0};
+  for(let i=0;i<Math.min(state.budget,Math.max(6,initialCount));i++)admit(state,0);
   return state;
 }
-export function setBudget(state,budget){state.budget=clamp(Math.round(budget),3,16);}
+export function setBudget(state,budget){state.budget=clamp(Math.round(budget),6,32);}
 function retire(state,at){
   const remaining=[];for(const item of state.instances){if(item.end<=at){state.closed++;state.history.push(item);}else remaining.push(item);}
   state.instances=remaining;state.history=state.history.slice(-8);
@@ -50,16 +50,16 @@ export function advance(state,seconds){
   while(state.nextArrival<=end){const at=state.nextArrival;retire(state,at);const target=desiredDensity(at,state.seed,state.budget);
     if(state.instances.length<target)admit(state,at);
     const attempt=++state.arrivalAttempt,key=hash(state.seed^Math.imul(attempt,0xc2b2ae35));
-    const interval=1.5+random(key,0)*4.8;
+    const interval=.55+random(key,0)*1.65;
     state.nextArrival=at+interval;
   }
   retire(state,end);state.elapsed=end;
 }
 export function stateAt(elapsed,options={}){const s=createState(options);advance(s,elapsed);return s;}
-export function instanceFrame(model,instance,elapsed){
+export function instanceFrame(model,instance,elapsed,{coordinates=true}={}){
   const age=Math.max(0,elapsed-instance.started),work=age-instance.intro,stage=clamp(Math.floor(Math.max(0,work)/instance.stepTime),0,STEPS.length);
   const blend=stage===STEPS.length||work<0?0:smooth((work-stage*instance.stepTime)/(instance.stepTime*.84)),from=model.stages[stage],to=model.stages[Math.min(stage+1,STEPS.length)],committed=blend===1,activeEdges=committed?to.edges:from.edges;
-  const vertices=blend===0?from.vertices:blend===1?to.vertices:from.vertices.map((p,i)=>p.map((v,j)=>v+(to.vertices[i][j]-v)*blend));
+  const vertices=!coordinates?from.vertices:blend===0?from.vertices:blend===1?to.vertices:from.vertices.map((p,i)=>p.map((v,j)=>v+(to.vertices[i][j]-v)*blend));
   return{model,instance,vertices,activeEdges,edgeCount:activeEdges.length,stage,blend,phase:stage===STEPS.length?'retained':work<0?'registered':committed?'merged':'quantizing',time:age,serial:instance.serial,step:STEPS[Math.min(stage,STEPS.length-1)],committed};
 }
 export function summary(frames,state){return{records:state.records,closed:state.closed,visible:frames.length,substantial:frames.filter(f=>f.edgeCount>0).length,edges:frames.reduce((n,f)=>n+f.activeEdges.length,0),empty:frames.every(f=>f.activeEdges.length===0),phase:frames.some(f=>f.phase==='quantizing')?'quantizing':frames.every(f=>f.phase==='retained')?'retained':'registered'};}
