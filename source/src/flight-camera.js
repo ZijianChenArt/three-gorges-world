@@ -19,6 +19,7 @@
 
 const finite = (n, fallback = 0) => Number.isFinite(n) ? n : fallback;
 const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
+const difference = (a, b) => a.map((n, i) => n - b[i]);
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const addScaled = (a, b, amount) => a.map((n, i) => n + b[i] * amount);
 const vector = p => [0, 1, 2].map(i => finite(p?.[i]));
@@ -28,6 +29,7 @@ export const FLIGHT_FAR = 180;
 export const MIN_FLIGHT_DISTANCE = 1.2;
 export const MIN_FLIGHT_HEIGHT = -6.65; // The reflection surface is at -7.7.
 const TAU = Math.PI * 2;
+export const FLIGHT_CYCLE = 144;
 const ease = value => {
   const x = clamp(value, 0, 1);
   return x * x * x * (x * (x * 6 - 15) + 10);
@@ -71,7 +73,7 @@ function flightScene(scene, phone, elapsed) {
   return {instances, center};
 }
 
-function routePoint(time, phone, scene) {
+function routePoint(time, phone, scene, clearance = true) {
   const phase = .056 * time + .32;
   // An elongated internal circuit crosses the occupied volume diagonally. It
   // starts outside and advances down the corridor, rather than orbiting a
@@ -80,7 +82,11 @@ function routePoint(time, phone, scene) {
   const z = 8.5 * Math.cos(phase) * (phone ? .83 : 1) + 4 * Math.exp(-Math.max(0, time) / 9);
   const eye = [x + scene.center[0] * .55, 1.65 + .55 * Math.sin(phase * .73 + .3) + scene.center[1] * .4,
     z + scene.center[2] * .55];
-  const baseY = eye[1];
+  return clearance ? clearRoutePoint(eye, phone, scene) : eye;
+}
+
+function clearRoutePoint(point, phone, scene) {
+  const eye = [...point], baseY = eye[1];
   // Preserve the horizontal corridor where possible, rising smoothly above a
   // conservative box only when its footprint closes that gap. A three-unit
   // shoulder starts the climb before reaching any occupied box face. Smooth
@@ -91,7 +97,10 @@ function routePoint(time, phone, scene) {
     const shoulder = phone ? 2.3 : 3;
     const coverage = ease((item.extents[0] + shoulder - dx) / shoulder)
       * ease((item.extents[2] + shoulder - dz) / shoulder) * item.weight;
-    const lift = Math.max(0, item.position[1] + item.extents[1] + .65 - baseY) * coverage;
+    const height = item.position[1] + item.extents[1] + .65 - baseY;
+    // Conservative smooth positive part avoids a velocity kink as a descent
+    // crosses a roof height during approach or pullout.
+    const lift = .5 * (height + Math.sqrt(height * height + .16)) * coverage;
     roofs += Math.expm1(lift / .18);
   }
   eye[1] += .18 * Math.log1p(roofs);
@@ -99,31 +108,65 @@ function routePoint(time, phone, scene) {
 }
 
 /**
- * Forward-looking interior flight. Optional scene is an array of posed instances
- * or {elapsed, instances}, each with position/scale/bounds/angle/lean and optional
- * started/end. Freeze that descriptor snapshot together with elapsed when
- * inspecting or paused. No accumulated integration state or wrapping seam.
+ * Repeatable, C2-smooth overview/approach/interior/pullout envelope. The route
+ * itself never resets at a cycle boundary: only the blend weight repeats.
+ */
+export function flightPhase(elapsed) {
+  const time = Math.max(0, finite(elapsed)) % FLIGHT_CYCLE;
+  if (time < 16) return {phase: 'overview', interior: 0};
+  if (time < 44) return {phase: 'approach', interior: ease((time - 16) / 28)};
+  if (time < 104) return {phase: 'interior', interior: 1};
+  if (time < 132) return {phase: 'pullout', interior: 1 - ease((time - 104) / 28)};
+  return {phase: 'overview', interior: 0};
+}
+
+/**
+ * Panorama and forward-looking interior flight share one continuous trajectory.
+ * Optional scene is an array of posed instances or {elapsed, instances}, each
+ * with position/scale/bounds/angle/lean and optional started/end. Freeze that
+ * descriptor snapshot together with elapsed when inspecting or paused.
+ * No accumulated integration state, per-frame randomness, or wrapping seam.
  */
 export function automaticCamera(elapsed, phone = false, context) {
   const t = Math.max(0, finite(elapsed));
   const scene = flightScene(context, phone, t);
-  const eye = routePoint(t, phone, scene);
-  const ahead = routePoint(t + 13 + 1.7 * Math.sin(t * .037), phone, scene);
-  const target = ahead.map((n, axis) => axis === 1
-    ? eye[1] * .62 + scene.center[1] * .38 - .55
-    : n * .8 + scene.center[axis] * .2);
-  const backward = eye.map((n, i) => n - target[i]);
-  const distance = Math.max(MIN_FLIGHT_DISTANCE, Math.hypot(...backward));
+  const {interior} = flightPhase(t);
+  const innerPosition = routePoint(t, phone, scene, false);
+  const innerEye = clearRoutePoint(innerPosition, phone, scene);
+  const ahead = routePoint(t + 13 + 1.7 * Math.sin(t * .037), phone, scene, false);
+  // A modest inward guide keeps tight route bends looking through surviving
+  // forms instead of looking steeply down into the empty outside corridor.
+  const innerTarget = ahead.map((n, axis) => axis === 1
+    ? innerEye[1] * .62 + scene.center[1] * .38 - .55
+    : n * .7 + scene.center[axis] * .3);
+  const backward = innerEye.map((n, i) => n - innerTarget[i]);
+  const innerDistance = Math.max(MIN_FLIGHT_DISTANCE, Math.hypot(...backward));
   const rawYaw = Math.atan2(backward[0], backward[2]);
-  // Unwrap around the route's winding angle so manual offsets remain smooth
-  // through atan2's +/- PI seam as well as the path's lap boundary.
-  const referenceYaw = .056 * t + .32 - .48;
-  const yaw = rawYaw + TAU * Math.round((referenceYaw - rawYaw) / TAU);
+  // Both headings wind in the same direction. Unwrap before interpolation,
+  // avoiding atan2's seam and vector cancellation during the transition.
+  const orbitYaw = .056 * t + .32 - .48;
+  const innerYaw = rawYaw + TAU * Math.round((orbitYaw - rawYaw) / TAU);
+  const innerTilt = Math.asin(clamp(backward[1] / innerDistance, -.98, .98));
+  const radius = phone ? 26 : 14;
+  const outerTarget = [scene.center[0], scene.center[1] - .25, scene.center[2]];
+  const outerEye = [outerTarget[0] + Math.sin(orbitYaw) * radius,
+    8.4 + 1.1 * Math.sin(t * .028 + .6) + scene.center[1] * .4,
+    outerTarget[2] + Math.cos(orbitYaw) * radius];
+  const outerDistance = Math.hypot(...difference(outerEye, outerTarget));
+  const outerTilt = Math.asin((outerEye[1] - outerTarget[1]) / outerDistance);
+  // Clearance must be evaluated on the final blended position too, not just
+  // the endpoints. An otherwise-safe straight blend can cross a sculpture.
+  const eye = clearRoutePoint(outerEye.map((n, axis) => n + (innerPosition[axis] - n) * interior), phone, scene);
+  const yaw = orbitYaw + (innerYaw - orbitYaw) * interior;
+  const tilt = outerTilt + (innerTilt - outerTilt) * interior;
+  const distance = outerDistance + (innerDistance - outerDistance) * interior;
+  const direction = [Math.sin(yaw) * Math.cos(tilt), Math.sin(tilt), Math.cos(yaw) * Math.cos(tilt)];
+  const target = addScaled(eye, direction, -distance);
   return {
     yaw: yaw + .47,
-    pitch: Math.asin(clamp(backward[1] / distance, -.98, .98)) - .43,
-    // A fixed lens; actual eye translation creates the near/far change. The
-    // wider interior view preserves useful framing on portrait screens too.
+    pitch: tilt - .43,
+    // The fixed lens makes the overview/interior scale change a physical dolly,
+    // with depth-dependent parallax rather than an artificial zoom effect.
     zoom: (phone ? 17.4 : 12.3) / distance,
     panX: 0,
     panY: 0,

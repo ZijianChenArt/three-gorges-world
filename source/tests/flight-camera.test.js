@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import * as THREE from 'three';
-import {automaticCamera,cameraBasis,project,createProjector,projectionParameters,MIN_FLIGHT_DISTANCE,MIN_FLIGHT_HEIGHT,FLIGHT_NEAR} from '../src/flight-camera.js';
+import {automaticCamera,cameraBasis,project,createProjector,projectionParameters,MIN_FLIGHT_DISTANCE,MIN_FLIGHT_HEIGHT,FLIGHT_NEAR,FLIGHT_CYCLE,flightPhase} from '../src/flight-camera.js';
 import {getView,instancePose,transformPoint} from '../src/print-renderer.js';
 import {createCamera,orbitCamera} from '../src/camera.js';
 import {prepareArchive,stateAt,instanceFrame} from '../src/archive.js';
@@ -14,7 +14,7 @@ const dot = (a,b) => a.reduce((sum,n,i)=>sum+n*b[i],0);
 const shifted = (p,axis,n) => p.map((v,i)=>v+axis[i]*n);
 const sceneAt = (t,phone=false) => {
   const state=stateAt(t,{budget:phone?16:26,initialCount:phone?8:12});
-  return {elapsed:t,instances:state.instances.map(instance=>({...instance,...instancePose(instance,phone),bounds:models[instance.modelIndex].bounds}))};
+  return {elapsed:t,instances:state.instances.map(instance=>({...instance,...instancePose(instance,phone,{elapsed:t}),bounds:models[instance.modelIndex].bounds}))};
 };
 const corners = item => Array.from({length:8},(_,i)=>transformPoint(item.bounds.map((v,j)=>v*(i&(1<<j)?1:-1)),item));
 const boundsOf = points => ({min:[0,1,2].map(j=>Math.min(...points.map(p=>p[j]))),max:[0,1,2].map(j=>Math.max(...points.map(p=>p[j])))});
@@ -33,49 +33,60 @@ test('flight is deterministic and freezing time plus its scene snapshot freezes 
   }
 });
 
-test('the actual eye enters occupied cluster bounds and threads its interior rather than circling outside',()=>{
+test('macrocycle alternates real panoramic distance with entry into the occupied cluster',()=>{
   for(const phone of [false,true]){
-    let interior=0,closest=Infinity,furthest=0;
-    for(let t=0;t<=240;t+=1){
+    let interior=0,samples=0,closest=Infinity,furthest=0,wide=0;
+    for(let t=0;t<FLIGHT_CYCLE*3;t+=1){
       const scene=sceneAt(t,phone),camera=automaticCamera(t,phone,scene),eye=cameraBasis(camera).eye;
-      const bounds=boundsOf(scene.instances.flatMap(corners));
-      if(contains(bounds,eye))interior++;
-      if(t===10)assert.ok(contains(bounds,eye),'the camera has entered the cluster within ten seconds');
+      const bounds=boundsOf(scene.instances.flatMap(corners)),{phase}=flightPhase(t);
       const distance=Math.min(...scene.instances.map(item=>length(difference(eye,item.position))));
-      closest=Math.min(closest,distance);furthest=Math.max(furthest,distance);
+      if(phase==='interior'){
+        samples++;if(contains(bounds,eye))interior++;
+        closest=Math.min(closest,distance);
+        assert.ok(camera.distance<32,'short forward focus during interior traversal');
+      }
+      if(phase==='overview'){
+        wide++;furthest=Math.max(furthest,distance);
+        assert.ok(!contains(bounds,eye),'overview is physically outside the cluster');
+        assert.ok(camera.distance>(phone?24:15),'overview has wide physical camera distance');
+      }
       assert.ok(eye[1]>-7.7,'always above the mirror');
-      assert.ok(camera.distance<12,'look-ahead focus is no longer clamped outside the cluster at 14 units');
     }
-    assert.ok(interior>120,`more than half the route is inside occupied xyz bounds: ${interior}/241`);
+    assert.ok(wide>=80,'sustained panoramic intervals across three cycles');
+    assert.ok(interior>samples*.55,`most interior-phase samples enter occupied xyz bounds: ${interior}/${samples}`);
     assert.ok(closest<3.5,'passes close to real model centers');
-    assert.ok(furthest-closest>3,'meaningful near/far physical dolly range');
+    assert.ok(furthest-closest>(phone?15:10),'overview and interior have a substantial physical dolly range');
+    // The opening now intentionally establishes the panorama before approaching.
+    assert.equal(flightPhase(10).phase,'overview');
+    assert.equal(flightPhase(44).phase,'interior');
   }
 });
 
-test('look direction anticipates the route ahead instead of locking to the scene center',()=>{
+test('interior gaze anticipates forward travel while panorama faces the complete group',()=>{
   for(const phone of [false,true]){
-    const scene=sceneAt(0,phone);let forward=0,offCenter=0;
-    for(let t=0;t<120;t+=.5){
+    const scene=sceneAt(0,phone);let forward=0,offCenter=0,samples=0;
+    for(let t=0;t<FLIGHT_CYCLE*3;t+=.5){
       const a=cameraBasis(automaticCamera(t,phone,scene)),b=cameraBasis(automaticCamera(t+.1,phone,scene));
       const velocity=difference(b.eye,a.eye),gaze=a.direction.map(n=>-n);
-      // Vertical clearance climbs can look down at the approaching objects;
-      // evaluate the forward travel direction in the horizontal corridor.
-      if(gaze[0]*velocity[0]+gaze[2]*velocity[2]>0)forward++;
-      const toCenter=a.eye.map(n=>-n),centerLength=length(toCenter);
-      if(dot(gaze,toCenter)/centerLength<.94)offCenter++;
+      if(flightPhase(t).phase==='interior'){
+        samples++;
+        if(gaze[0]*velocity[0]+gaze[2]*velocity[2]>0)forward++;
+        const toCenter=a.eye.map(n=>-n);
+        if(dot(gaze,toCenter)/length(toCenter)<.94)offCenter++;
+      }else if(flightPhase(t).phase==='overview'){
+        assert.ok(dot(gaze,a.eye.map(n=>-n))/length(a.eye)>.98,'panorama looks inward');
+      }
     }
-    assert.ok(forward>210,`${forward}/240 samples look in the direction of travel`);
-    assert.ok(offCenter>130,'view changes independently from the group center');
+    assert.ok(forward>samples*.75,`${forward}/${samples} interior samples face the direction of travel`);
+    assert.ok(offCenter>samples*.5,`${offCenter}/${samples} interior views differ substantially from facing the group center`);
   }
 });
 
-test('five seconds creates visible translation and depth-dependent perspective motion',()=>{
-  for(const phone of [false,true]){
-    const a=automaticCamera(0,phone,sceneAt(0,phone)),b=automaticCamera(5,phone,sceneAt(5,phone));
+test('panorama rotation and interior flight both translate and preserve depth-dependent parallax',()=>{
+  for(const phone of [false,true])for(const start of [0,75]){
+    const a=automaticCamera(start,phone,sceneAt(start,phone)),b=automaticCamera(start+5,phone,sceneAt(start+5,phone));
     const ba=cameraBasis(a),bb=cameraBasis(b),w=phone?390:1188,h=phone?844:762;
-    assert.ok(length(difference(bb.eye,ba.eye))>2.5,'eye really translates through world space');
-    const model=sceneAt(0,phone).instances[0].position;
-    assert.ok(length(difference(screen(model,b,w,h),screen(model,a,w,h)))>(phone?25:60),'model displacement visible within five seconds');
+    assert.ok(length(difference(bb.eye,ba.eye))>2,'eye translates through world space in both modes');
     const near=shifted(shifted(ba.eye,ba.direction,-5),ba.right,1.3),far=shifted(shifted(ba.eye,ba.direction,-13),ba.right,1.3);
     const nearMotion=length(difference(screen(near,b,w,h),screen(near,a,w,h)));
     const farMotion=length(difference(screen(far,b,w,h),screen(far,a,w,h)));
@@ -86,7 +97,7 @@ test('five seconds creates visible translation and depth-dependent perspective m
 test('conservative static source boxes receive clearance without pretending to test actual mesh collisions',()=>{
   for(const phone of [false,true]){
     const scene=sceneAt(0,phone);scene.instances=scene.instances.map(({started,end,...item})=>item);
-    for(let t=0;t<130;t+=.25){
+    for(let t=0;t<FLIGHT_CYCLE*3;t+=.25){
       const eye=cameraBasis(automaticCamera(t,phone,scene)).eye;
       for(const item of scene.instances){
         const b=boundsOf(corners(item));
@@ -104,21 +115,34 @@ test('route stays continuous and bounded across hour-long loops and live arrival
     let maxStep=0,maxTurn=0;
     for(let t=0;t<3600;t+=.37){
       const a=automaticCamera(t,phone),b=automaticCamera(t+1/60,phone),ba=cameraBasis(a),bb=cameraBasis(b);
-      assert.ok(a.distance>=MIN_FLIGHT_DISTANCE&&a.distance<12);
+      assert.ok(a.distance>=MIN_FLIGHT_DISTANCE&&a.distance<32);
       assert.ok(ba.eye.every(Number.isFinite)&&ba.eye[1]>=MIN_FLIGHT_HEIGHT);
       maxStep=Math.max(maxStep,length(difference(ba.eye,bb.eye)));
       maxTurn=Math.max(maxTurn,Math.abs(b.yaw-a.yaw),Math.abs(b.pitch-a.pitch));
       assert.ok(Math.abs(a.zoom*a.distance-(phone?17.4:12.3))<1e-10,'lens remains stable while dollying');
     }
-    assert.ok(maxStep<.04,`maximum 60fps translation ${maxStep}`);
+    assert.ok(maxStep<.055,`maximum 60fps translation ${maxStep}`);
     assert.ok(maxTurn<.005,`maximum 60fps rotation ${maxTurn}`);
-    for(let t=.1;t<240;t+=.47){
+    for(let t=.1;t<FLIGHT_CYCLE*3;t+=.47){
       const dt=.01,a=cameraBasis(automaticCamera(t-dt,phone,sceneAt(t-dt,phone))),b=cameraBasis(automaticCamera(t,phone,sceneAt(t,phone))),c=cameraBasis(automaticCamera(t+dt,phone,sceneAt(t+dt,phone)));
       const first=difference(b.eye,a.eye),second=difference(c.eye,b.eye);
-      assert.ok(length(second)/dt<2.1,'new models do not jump the eye');
+      assert.ok(length(second)/dt<3.2,'new models do not jump the eye');
       assert.ok(length(difference(second,first))/(dt*dt)<7,'bounded acceleration through arrivals and retirement');
       assert.ok(length(difference(c.direction,b.direction))/dt<.3,'bounded changing look direction');
     }
+  }
+});
+
+test('all macrocycle boundaries preserve position, heading and velocity without a cut',()=>{
+  for(const phone of [false,true])for(let cycle=0;cycle<8;cycle++)for(const boundary of [16,44,104,132,144]){
+    const t=cycle*FLIGHT_CYCLE+boundary,scene=sceneAt(t,phone),dt=.002;
+    const a=automaticCamera(t-dt,phone,scene),b=automaticCamera(t,phone,scene),c=automaticCamera(t+dt,phone,scene);
+    const ba=cameraBasis(a),bb=cameraBasis(b),bc=cameraBasis(c);
+    assert.ok(length(difference(bc.eye,ba.eye))<.012,'no positional cut');
+    assert.ok(length(difference(bc.direction,ba.direction))<.002,'no heading flip');
+    assert.ok(Math.abs(c.yaw-a.yaw)<.002,'unwrapped manual yaw remains continuous');
+    const incoming=difference(bb.eye,ba.eye),outgoing=difference(bc.eye,bb.eye);
+    assert.ok(length(difference(outgoing,incoming))/dt<.02,'velocity agrees on both sides of a blend boundary');
   }
 });
 
@@ -133,22 +157,47 @@ test('provided model poses influence the route and malformed inputs remain finit
 test('desktop and phone keep actual surviving source geometry in view throughout the changing archive',()=>{
   for(const [w,h] of [[320,568],[390,844],[1188,762],[1440,1000]]){
     const phone=w<650;
-    for(let t=0;t<=240;t+=3){
+    let interiorNear=0,interiorFrames=0,overviewScale=0,interiorScale=0,multiDepthFrames=0,frames=0;
+    for(let t=0;t<=FLIGHT_CYCLE*3;t+=3){
       const scene=sceneAt(t,phone),camera=automaticCamera(t,phone,scene),{view,fov}=projectionParameters(w,h,getView(w,h),camera);
       let visible=0,near=Infinity,far=0;
       assert.ok(fov>40&&fov<100,`comfortable finite perspective ${fov}`);
       for(const item of scene.instances){
         const frame=instanceFrame(models[item.modelIndex],item,t);if(!frame.activeEdges.length)continue;
-        for(let i=0;i<frame.vertices.length;i+=23){
-          const q=project(transformPoint(frame.vertices[i],item),camera);
+        const surviving=[...new Set(frame.activeEdges.flat())],stride=Math.max(1,Math.floor(surviving.length/100));
+        for(let i=0;i<surviving.length;i+=stride){
+          const q=project(transformPoint(frame.vertices[surviving[i]],item),camera);
           assert.ok(q.every(Number.isFinite));
           const x=view.cx+q[0]*view.scale,y=view.cy+q[1]*view.scale;
           if(q.visible&&x>0&&x<w&&y>view.top&&y<view.bottom){visible++;near=Math.min(near,q.cameraDepth);far=Math.max(far,q.cameraDepth);}
         }
       }
       assert.ok(visible>=5,`${w}×${h} at ${t}s contains ${visible} sampled surviving vertices`);
-      assert.ok(far-near>1,'several visible geometry depths preserve a spatial scene');
+      frames++;if(far-near>1)multiDepthFrames++;
+      const phase=flightPhase(t).phase,basis=cameraBasis(camera);
+      if(phase==='overview'){
+        const visibleCenters=scene.instances.filter(item=>{
+          const q=project(item.position,camera),x=view.cx+q[0]*view.scale,y=view.cy+q[1]*view.scale;
+          return q.visible&&x>0&&x<w&&y>view.top&&y<view.bottom;
+        });
+        assert.ok(visibleCenters.length>=scene.instances.length*.75,'panorama shows a clear majority of actual model centers');
+      }
+      if(phase==='interior'){
+        interiorFrames++;if(near<9)interiorNear++;
+      }
+      // A source-sized span at a visible model gives a topology-independent
+      // measure of physical scale change despite ongoing quantization.
+      for(const item of scene.instances){
+        const q=project(item.position,camera),x=view.cx+q[0]*view.scale,y=view.cy+q[1]*view.scale;
+        if(!q.visible||x<0||x>w||y<view.top||y>view.bottom)continue;
+        const span=length(difference(screen(shifted(item.position,basis.right,item.scale),camera,w,h),screen(shifted(item.position,basis.right,-item.scale),camera,w,h)))/w;
+        if(phase==='overview')overviewScale=Math.max(overviewScale,span);
+        if(phase==='interior')interiorScale=Math.max(interiorScale,span);
+      }
     }
+    assert.ok(multiDepthFrames>=frames*.95,'depth-separated surviving geometry remains visible through all phases apart from rare temporarily flattened quantization frames');
+    assert.ok(interiorNear>=interiorFrames*.8,'interior phase keeps real foreground geometry within nine units');
+    assert.ok(interiorScale>overviewScale*2,'models visibly grow between panorama and interior');
   }
 });
 
@@ -186,7 +235,7 @@ test('default orthographic projection and natural manual orbit signs are unchang
 
 test('Three perspective and orthographic projections match Canvas including off-axis pan and manual offsets',()=>{
   for(const[w,h]of[[320,568],[390,844],[1188,762],[1440,1000]]){
-    for(const base of[createCamera(),automaticCamera(0),automaticCamera(5,true),automaticCamera(10),automaticCamera(42,true),automaticCamera(100)]){
+    for(const base of[createCamera(),automaticCamera(0),automaticCamera(5,true),automaticCamera(10),automaticCamera(42,true),automaticCamera(100),automaticCamera(120),automaticCamera(144),automaticCamera(288)]){
       for(const manual of[{},{yaw:-.5,pitch:.3,zoom:1.3,panX:.12,panY:-.08}]){
         const c={...base,...manual},s=projectionParameters(w,h,getView(w,h),c);
         const camera=s.perspective

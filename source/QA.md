@@ -1,8 +1,15 @@
-# Release validation — 5.4.0
+# Release validation — 5.5.0
 
-144 automated tests pass, followed by the production Vite build.
+168 automated tests pass, followed by the production Vite build.
 
 ## This revision
+
+- Repeated pending touches and taps produce exactly the same complete camera pose and clock as untouched playback in deterministic integration tests.
+- Real drag promotion snapshots the displayed camera before applying finger movement. Multi-touch takeover, last release, cancellation, repeated gestures and smooth return are tested without ghost taps.
+- Exact pointer-down hit identity and local coordinates are retained while the camera continues moving.
+- A continuous macrocycle alternates panoramic orbit, approach, interior weaving and pullout. Tests cover cycle boundaries, wide framing, interior cluster entry and shared Canvas/Three projection.
+
+## Retained checks
 
 - Visible point generation, animation data, point textures, Three.Points objects and their GPU buffers are removed. No P counter or point marks remain. Compatibility fields report zero points.
 - Shadow maps, light casters and mesh receivers are disabled. Physical material illumination and the bounded shallow planar reflection remain.
