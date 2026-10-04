@@ -98,6 +98,55 @@ function facetNormals(positions, previous) {
   return normals;
 }
 
+/** Prepare one normalized triangle source once, preserving its source UVs.
+ * The real GLB sources and the runtime cube share this exact reduction path.
+ */
+export function prepareSourceStages(id, precisePositions, normals, uvAttribute, { steps = STEPS } = {}) {
+  const vertexCount = precisePositions.length / 3;
+  if (!Number.isInteger(vertexCount) || vertexCount % 3 || !vertexCount) throw new Error('A normalized triangle source is required.');
+  const positions = new Float32Array(precisePositions);
+  const sourceTriangles = vertexCount / 3;
+  const stages = [{ positions, normals, triangleIds: allTriangleIds(sourceTriangles), triangleCount: sourceTriangles, step: 0 }];
+  let priorCoordinates = precisePositions;
+  for (const step of steps) {
+    const previous = stages.at(-1);
+    priorCoordinates = quantizedPositions(priorCoordinates, step);
+    const positions = new Float32Array(priorCoordinates);
+    const triangleIds = compactTriangleIds(positions, previous.triangleIds);
+    stages.push({ positions, normals: facetNormals(positions, previous.normals), triangleIds, triangleCount: triangleIds.length, step });
+  }
+  const attributes = stages.map(stage => ({
+    position: new BufferAttribute(stage.positions, 3),
+    normal: new BufferAttribute(stage.normals, 3),
+  }));
+  const stageGeometries = stages.map((stage, stageIndex) => {
+    const geometry = new BufferGeometry();
+    geometry.name = `${id}:stage:${stageIndex}`;
+    geometry.setAttribute('position', attributes[stageIndex].position);
+    geometry.setAttribute('normal', attributes[stageIndex].normal);
+    geometry.setAttribute('uv', uvAttribute);
+    geometry.setIndex(triangleIndex(stage.triangleIds, vertexCount));
+    const next = attributes[Math.min(stageIndex + 1, stages.length - 1)];
+    geometry.morphAttributes.position = [next.position];
+    geometry.morphAttributes.normal = [next.normal];
+    geometry.morphTargetsRelative = false;
+    // Attribute names are stable across geometry switches, so each mesh keeps
+    // its own one-element influence array for its complete lifetime.
+    next.position.name = 'next';
+    next.normal.name = 'next';
+    geometry.userData.triangleCount = stage.triangleCount;
+    geometry.userData.stage = stageIndex;
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+    return geometry;
+  });
+  return {
+    sourceTriangles, geometry: stageGeometries[0], stageGeometries: Object.freeze(stageGeometries),
+    stages: Object.freeze(stages.map(Object.freeze)),
+    triangleCounts: Object.freeze(stages.map(stage => stage.triangleCount)),
+  };
+}
+
 function validateWireData(data) {
   if (!Array.isArray(data?.groups) || !Array.isArray(data.sceneOriginOriginal)
       || data.sceneOriginOriginal.length !== 3 || !data.sceneOriginOriginal.every(Number.isFinite)
@@ -202,48 +251,12 @@ export function extractSourceGeometries(scene, wireData, { steps = STEPS } = {})
         normals[at + 2] = fallback[at + 2];
       }
     }
-    const sourceTriangles = vertexCount / 3;
-    const stages = [{ positions, normals, triangleIds: allTriangleIds(sourceTriangles), triangleCount: sourceTriangles, step: 0 }];
-    let priorCoordinates = precisePositions;
-    for (const step of steps) {
-      const previous = stages.at(-1);
-      priorCoordinates = quantizedPositions(priorCoordinates, step);
-      const positions = new Float32Array(priorCoordinates);
-      const triangleIds = compactTriangleIds(positions, previous.triangleIds);
-      stages.push({ positions, normals: facetNormals(positions, previous.normals), triangleIds, triangleCount: triangleIds.length, step });
-    }
-    const attributes = stages.map(stage => ({
-      position: new BufferAttribute(stage.positions, 3),
-      normal: new BufferAttribute(stage.normals, 3),
-    }));
-    const stageGeometries = stages.map((stage, stageIndex) => {
-      const geometry = new BufferGeometry();
-      geometry.name = `${group.id}:stage:${stageIndex}`;
-      geometry.setAttribute('position', attributes[stageIndex].position);
-      geometry.setAttribute('normal', attributes[stageIndex].normal);
-      geometry.setAttribute('uv', uvAttribute);
-      geometry.setIndex(triangleIndex(stage.triangleIds, vertexCount));
-      const next = attributes[Math.min(stageIndex + 1, stages.length - 1)];
-      geometry.morphAttributes.position = [next.position];
-      geometry.morphAttributes.normal = [next.normal];
-      geometry.morphTargetsRelative = false;
-      // Attribute names are stable across geometry switches, so each mesh keeps
-      // its own one-element influence array for its complete lifetime.
-      next.position.name = 'next';
-      next.normal.name = 'next';
-      geometry.userData.triangleCount = stage.triangleCount;
-      geometry.userData.stage = stageIndex;
-      geometry.computeBoundingBox();
-      geometry.computeBoundingSphere();
-      return geometry;
-    });
+    const prepared = prepareSourceStages(group.id, precisePositions, normals, uvAttribute, { steps });
     return Object.freeze({
       id: group.id, name: group.name, index, sourceGroup: group.sourceGroup,
-      sourceTriangles, sourceMeshes: meshes.length, parts: Object.freeze(parts),
+      sourceMeshes: meshes.length, parts: Object.freeze(parts),
       unit, halfY, bounds: Object.freeze(size.map(value => value / unit / 2)),
-      geometry: stageGeometries[0], stageGeometries: Object.freeze(stageGeometries),
-      stages: Object.freeze(stages.map(Object.freeze)),
-      triangleCounts: Object.freeze(stages.map(stage => stage.triangleCount)),
+      ...prepared,
     });
   });
 }

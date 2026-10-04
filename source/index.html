@@ -4,10 +4,10 @@
 <body>
 <main id="app">
   <canvas id="pbr-layer" aria-hidden="true" hidden></canvas>
-  <canvas id="world" tabindex="0" role="application" aria-label="自动运行的三维线面场。轻触单个形体，使它的线面散开再聚合，拖动检查视角。" aria-describedby="keyboard-help"></canvas>
+  <canvas id="world" tabindex="0" role="application" aria-label="自动运行的三维线面场。轻触单个形体，使它的线面散开再聚合，长按局部吸拢，松开回弹；拖动检查视角。" aria-describedby="keyboard-help"></canvas>
   <p id="render-mode" role="status" aria-label="渲染状态">…</p>
   <section class="register" aria-label="实际几何与显示参数"><div><span>R</span><strong id="record-count">0</strong></div><div><span>E</span><strong id="edge-count">0</strong></div><div><span>L</span><strong id="sample-count">0</strong></div><div><span>F</span><strong id="face-count">0</strong></div></section>
-  <p id="keyboard-help" class="sr-only">自动运行。轻触单个形体，使它的线面散开再聚合，Enter 在中心形体触发。拖动旋转，双指平移和缩放。方向键旋转，Shift 加方向键平移，加减键缩放，Home 归位，空格暂停。</p><p id="announcement" role="status" class="sr-only"></p><p id="unsupported" hidden>无法打开画布。请更新浏览器后重试。</p><noscript>需要 JavaScript。</noscript>
+  <p id="keyboard-help" class="sr-only">自动运行。轻触单个形体，使它的线面散开再聚合，Enter 在中心形体触发。长按形体局部吸拢，松开回弹；按住 G 键可对中心形体使用同一动作。拖动旋转，双指平移和缩放。方向键旋转，Shift 加方向键平移，加减键缩放，Home 归位，空格暂停。</p><p id="announcement" role="status" class="sr-only"></p><p id="unsupported" hidden>无法打开画布。请更新浏览器后重试。</p><noscript>需要 JavaScript。</noscript>
 </main>
 <script type="module" src="./src/main.js"></script>
 </body></html>

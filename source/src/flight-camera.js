@@ -27,7 +27,7 @@ const vector = p => [0, 1, 2].map(i => finite(p?.[i]));
 export const FLIGHT_NEAR = .2;
 export const FLIGHT_FAR = 180;
 export const MIN_FLIGHT_DISTANCE = 1.2;
-export const MIN_FLIGHT_HEIGHT = -6.65; // The reflection surface is at -7.7.
+export const MIN_FLIGHT_HEIGHT = -6.65; // Lower safety limit beneath the occupied model field.
 const TAU = Math.PI * 2;
 export const FLIGHT_CYCLE = 144;
 const ease = value => {
@@ -147,10 +147,11 @@ export function automaticCamera(elapsed, phone = false, context) {
   const orbitYaw = .056 * t + .32 - .48;
   const innerYaw = rawYaw + TAU * Math.round((orbitYaw - rawYaw) / TAU);
   const innerTilt = Math.asin(clamp(backward[1] / innerDistance, -.98, .98));
-  const radius = phone ? 26 : 14;
+  const openingScale = 1 - .22 * Math.exp(-t / 32);
+  const radius = (phone ? 26 : 14) * openingScale;
   const outerTarget = [scene.center[0], scene.center[1] - .25, scene.center[2]];
   const outerEye = [outerTarget[0] + Math.sin(orbitYaw) * radius,
-    8.4 + 1.1 * Math.sin(t * .028 + .6) + scene.center[1] * .4,
+    (8.4 + 1.1 * Math.sin(t * .028 + .6)) * openingScale + scene.center[1] * .4,
     outerTarget[2] + Math.cos(orbitYaw) * radius];
   const outerDistance = Math.hypot(...difference(outerEye, outerTarget));
   const outerTilt = Math.asin((outerEye[1] - outerTarget[1]) / outerDistance);

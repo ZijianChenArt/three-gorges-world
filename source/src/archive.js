@@ -1,4 +1,4 @@
-import {materialIndexFor} from './materials.js';
+import {materialIndexFor,WHITE_MATERIAL_INDEX} from './materials.js';
 /** A fictional retention procedure. Counts always come from actual surviving edges. */
 export const STEPS=[.065,.13,.26,.52,1.04,2.4];
 export function hash(n){n=Math.imul(n^(n>>>16),0x21f0aaad);n=Math.imul(n^(n>>>15),0x735a2d97);return(n^(n>>>15))>>>0;}
@@ -19,9 +19,13 @@ export function prepareArchive(groups,faceGroups=[]){return groups.map((g,index)
   for(const step of STEPS){const prior=stages.at(-1),next=prior.vertices.map(p=>quantize(p,step));stages.push({vertices:next,edges:compactEdges(next,prior.edges)});}
   return{id:g.id,name:g.name,index,size,unit,halfY,faces,stages,bounds:size.map(v=>v/unit/2),sourceEdges:edges.length};
 });}
-export function makeInstance(serial,started,seed=271828){
+export function makeInstance(serial,started,seed=271828,{includeCubes=false}={}){
   const key=hash(seed^Math.imul(serial,0x85ebca6b)),intro=5+random(key,1)*5,stepTime=4+random(key,2)*3,emptyHold=8+random(key,3)*10;
-  return{serial,started,key,modelIndex:serial<=5?serial-1:Math.floor(random(key,4)*5),materialIndex:materialIndexFor(hash(key^0x49d0a49b),serial),intro,stepTime,emptyHold,end:started+intro+STEPS.length*stepTime+emptyHold};
+  // Keep all five originals in the opening. Lightweight cubes occupy five
+  // additional slots and most later admissions without growing the render pool.
+  const cube=includeCubes&&serial>5&&(serial<=10||(serial>14&&random(key,40)<.58));
+  const materialSerial=includeCubes&&serial>=11&&serial<=14?[6,7,9,10][serial-11]:serial;
+  return{serial,started,key,modelIndex:cube?5:serial<=5?serial-1:Math.floor(random(key,4)*5),materialIndex:cube?WHITE_MATERIAL_INDEX:materialIndexFor(hash(key^0x49d0a49b),materialSerial),intro,stepTime,emptyHold,end:started+intro+STEPS.length*stepTime+emptyHold};
 }
 export function desiredDensity(elapsed,seed,budget){
   // The detailed foreground grows; older records accumulate separately in bounded bundles.
@@ -34,9 +38,9 @@ export function archiveBundles(state,limit=48){
   for(let from=1;from<=state.records;from+=width){const to=Math.min(state.records,from+width-1);let count=to-from+1;for(const id of active)if(id>=from&&id<=to)count--;if(count)result.push({from,to,count});}
   return result;
 }
-function admit(state,at){const item=makeInstance(++state.records,at,state.seed);state.instances.push(item);return item;}
-export function createState({reducedMotion=false,seed=271828,budget=24,initialCount=10}={}){
-  const state={elapsed:0,paused:reducedMotion,reducedMotion,seed:seed>>>0,budget:clamp(Math.round(budget),6,32),records:0,closed:0,instances:[],history:[],nextArrival:2.5,arrivalAttempt:0};
+function admit(state,at){const item=makeInstance(++state.records,at,state.seed,{includeCubes:state.includeCubes});state.instances.push(item);return item;}
+export function createState({reducedMotion=false,seed=271828,budget=24,initialCount=10,includeCubes=false}={}){
+  const state={includeCubes:Boolean(includeCubes),elapsed:0,paused:reducedMotion,reducedMotion,seed:seed>>>0,budget:clamp(Math.round(budget),6,32),records:0,closed:0,instances:[],history:[],nextArrival:2.5,arrivalAttempt:0};
   for(let i=0;i<Math.min(state.budget,Math.max(6,initialCount));i++)admit(state,0);
   return state;
 }

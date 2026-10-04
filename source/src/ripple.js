@@ -1,78 +1,148 @@
-/**
- * A bounded, instance-local vertex response. An event identifies one serial and
- * a point in that instance's local coordinates. It never changes an instance's
- * pose, the archive clock, survivor topology, or any shared source geometry.
- */
+/** Instance-local responses sampled on CURRENT geometry, never captured shapes. */
 export const MAX_RIPPLES = 2;
 export const RIPPLE_DURATION = 1.5;
-const REDUCED_PULSE_DURATION=.22;
 export const MAX_RIPPLE_DISPLACEMENT = .48;
+export const MAX_PULSES_PER_TARGET = 4;
+export const MAX_RETIRING_PULSES = 4;
+export const PULSE_RETIRE_DURATION = .08;
+export const HOLD_ATTACK = .2;
+export const HOLD_RELEASE = .6;
+export const HOLD_RADIUS = 1.8;
+const HOLD_PULL = .72;
+const REDUCED_PULSE_DURATION = .22;
 const FRONT_DELAY = .85;
 const FRONT_DISTANCE = 1.8;
 const FRONT_ATTACK = .028;
 const FRONT_DECAY = RIPPLE_DURATION - FRONT_DELAY - FRONT_ATTACK;
 const ORIGIN_SOFTNESS = .22;
 
-export function createRippleState() {
-  return {elapsed: 0, waves: []};
-}
+export function createRippleState() { return {elapsed: 0, waves: []}; }
 
 function point(value) {
   const p = value && typeof value[0] === 'number'
-    ? [value[0], value[1], value[2]]
-    : [value?.x, value?.y, value?.z];
+    ? [value[0], value[1], value[2]] : [value?.x, value?.y, value?.z];
   return p.every(Number.isFinite) ? p : null;
 }
-
-function validSerial(serial) {
-  return Number.isSafeInteger(serial) && serial >= 0;
+function validSerial(serial) { return Number.isSafeInteger(serial) && serial >= 0; }
+function smoothstep(t) { return t * t * (3 - 2 * t); }
+function pulseIsLive(pulse, elapsed) {
+  return elapsed >= pulse.started && elapsed - pulse.started < (pulse.reducedMotion ? REDUCED_PULSE_DURATION : RIPPLE_DURATION)
+    && (pulse.retired === undefined || elapsed - pulse.retired < PULSE_RETIRE_DURATION);
 }
-
+function holdIsLive(hold, elapsed) {
+  return !!hold && elapsed >= hold.started && (hold.released === null || elapsed - hold.released < HOLD_RELEASE);
+}
+function targetIsLive(wave, elapsed) {
+  return wave.pulses.some(pulse => pulseIsLive(pulse, elapsed)) || wave.retiring.some(pulse => pulseIsLive(pulse, elapsed))
+    || holdIsLive(wave.hold, elapsed);
+}
 function liveWave(ripples, serial) {
   if (!validSerial(serial)) return undefined;
-  return ripples?.waves?.find(wave => wave.serial === serial
-    && ripples.elapsed >= wave.started && ripples.elapsed - wave.started < (wave.reducedMotion?REDUCED_PULSE_DURATION:RIPPLE_DURATION));
+  return ripples?.waves?.find(wave => wave.serial === serial && targetIsLive(wave, ripples.elapsed));
 }
-
 function retire(ripples) {
-  ripples.waves = ripples.waves.filter(wave => ripples.elapsed - wave.started < (wave.reducedMotion?REDUCED_PULSE_DURATION:RIPPLE_DURATION));
+  for (const wave of ripples.waves) {
+    wave.pulses = wave.pulses.filter(pulse => pulseIsLive(pulse, ripples.elapsed));
+    wave.retiring = wave.retiring.filter(pulse => pulseIsLive(pulse, ripples.elapsed));
+    if (!holdIsLive(wave.hold, ripples.elapsed)) wave.hold = undefined;
+  }
+  ripples.waves = ripples.waves.filter(wave => targetIsLive(wave, ripples.elapsed));
+}
+function addTarget(ripples, serial, origin) {
+  const wave = {serial, origin, started: ripples.elapsed, pulses: [], retiring: []};
+  ripples.waves.push(wave);
+  return wave;
+}
+function pulseWeight(pulse, elapsed) {
+  return pulse.retired === undefined ? 1 : 1 - smoothstep(Math.min(1, (elapsed - pulse.retired) / PULSE_RETIRE_DURATION));
 }
 
-/** Whether this exact instance needs its temporary local vertex buffers. */
+/** Whether this exact serial needs its temporary local vertex buffers. */
 export function hasRipple(ripples, serial) {
-  const wave=liveWave(ripples, serial);return !!wave&&!wave.reducedMotion;
+  const wave = liveWave(ripples, serial);
+  return !!wave && (holdIsLive(wave.hold, ripples.elapsed)
+    || wave.pulses.some(pulse => !pulse.reducedMotion && pulseIsLive(pulse, ripples.elapsed))
+    || wave.retiring.some(pulse => !pulse.reducedMotion && pulseIsLive(pulse, ripples.elapsed)));
 }
 
 /**
- * Copy a local origin and start this serial's response. At most two targets can
- * be active. Repeated taps on an active target and overflow taps are ignored:
- * neither can reset/evict moving vertices and produce a visible discontinuity.
- * A newer event time can advance the independent clock; old times never rewind.
+ * Every valid tap on a responding target starts its own origin/time immediately.
+ * Four full pulses and four short retiring tails bound per-vertex work. The
+ * oldest full pulse fades over 80ms instead of being replaced abruptly. Extremely
+ * dense synthetic bursts can discard only an already-retiring oldest tail.
+ * Two distinct targets remain the global budget; a third never evicts a target.
  */
 export function emitRipple(ripples, target, nowSeconds = ripples.elapsed, {reducedMotion = false} = {}) {
-  const origin = point(target?.origin);
-  const serial = target?.serial;
+  const origin = point(target?.origin), serial = target?.serial;
   if (!validSerial(serial) || !origin || !Number.isFinite(nowSeconds) || nowSeconds < 0) return false;
   ripples.elapsed = Math.max(ripples.elapsed, nowSeconds);
   retire(ripples);
-  if (liveWave(ripples, serial) || ripples.waves.length >= MAX_RIPPLES) return false;
-  ripples.waves.push({serial, origin, started: ripples.elapsed, reducedMotion});
+  let wave = liveWave(ripples, serial);
+  if (!wave) {
+    if (ripples.waves.length >= MAX_RIPPLES) return false;
+    wave = addTarget(ripples, serial, origin);
+  }
+  if (wave.pulses.length >= MAX_PULSES_PER_TARGET) {
+    const retiring = wave.pulses.shift();
+    retiring.retired = ripples.elapsed;
+    wave.retiring.push(retiring);
+    if (wave.retiring.length > MAX_RETIRING_PULSES) wave.retiring.shift();
+  }
+  wave.pulses.push({origin, started: ripples.elapsed, reducedMotion});
+  wave.origin = origin; wave.started = ripples.elapsed;
   return true;
 }
 
-/**
- * The caller advances visible wall time only while the page/modal permits it.
- * Archive pause is intentionally independent: a user-triggered response still
- * finishes while autonomous processing is paused. The final active tick asks
- * for a redraw so the caller can release temporary geometry and restore the
- * current shared stage. Reduced motion cancels all deformation immediately.
- */
+/** Holds and taps share the same target entry, so beginning a hold preserves
+ * every current pulse. Re-grabs crossfade to the newly captured actual hit. */
+export function beginHold(ripples, target, nowSeconds = ripples.elapsed, {reducedMotion = false} = {}) {
+  const origin = point(target?.origin), serial = target?.serial;
+  if (!validSerial(serial) || !origin || !Number.isFinite(nowSeconds) || nowSeconds < 0) return false;
+  ripples.elapsed = Math.max(ripples.elapsed, nowSeconds);
+  retire(ripples);
+  if (reducedMotion) return false;
+  let wave = liveWave(ripples, serial);
+  const oldHold = wave?.hold;
+  if (holdIsLive(oldHold, ripples.elapsed) && (oldHold.released === null || previousStrength(oldHold, ripples.elapsed) > 0)) return false;
+  if (!wave) {
+    if (ripples.waves.length >= MAX_RIPPLES) return false;
+    wave = addTarget(ripples, serial, origin);
+  }
+  const previous = holdIsLive(oldHold, ripples.elapsed)
+    ? {origin: oldHold.origin, strength: holdStrength(oldHold, ripples.elapsed)} : null;
+  wave.hold = {origin, started: ripples.elapsed, released: null, releasedStrength: 0, previous};
+  return true;
+}
+
+/** Release one serial, or every hold, without cancelling an existing pulse. */
+export function endHold(ripples, serial) {
+  if (serial !== undefined && !validSerial(serial)) return false;
+  let changed = false;
+  for (const wave of ripples?.waves ?? []) {
+    const hold = wave.hold;
+    if ((serial === undefined || wave.serial === serial) && holdIsLive(hold, ripples.elapsed) && hold.released === null) {
+      hold.releasedStrength = holdStrength(hold, ripples.elapsed);
+      hold.released = ripples.elapsed;
+      changed = true;
+    }
+  }
+  return changed;
+}
+export function cancelHolds(ripples) { return endHold(ripples); }
+
+/** Archive pause does not freeze a user response. Return true on the final
+ * active tick so temporary target geometry can return to its current stage. */
 export function advanceRipples(ripples, dt, {paused = false, reducedMotion = false} = {}) {
   void paused;
   const active = ripples.waves.length > 0;
   if (reducedMotion) {
-    ripples.waves = ripples.waves.filter(wave=>wave.reducedMotion);
-    if(!Number.isFinite(dt)||dt<=0)return active;
+    for (const wave of ripples.waves) {
+      wave.pulses = wave.pulses.filter(pulse => pulse.reducedMotion);
+      wave.retiring = wave.retiring.filter(pulse => pulse.reducedMotion);
+      wave.hold = undefined;
+    }
+    retire(ripples);
+    if (!Number.isFinite(dt) || dt <= 0) return active;
   }
   if (!Number.isFinite(dt) || dt <= 0) return false;
   ripples.elapsed += dt;
@@ -80,58 +150,69 @@ export function advanceRipples(ripples, dt, {paused = false, reducedMotion = fal
   return active;
 }
 
-/**
- * Return a deformed copy of the CURRENT local point, never a captured old shape.
- * Optional `out` is a reusable xyz array for bounded CPU-mesh updates. Equal
- * input coordinates always remain equal, so collapsed faces cannot reappear.
- *
- * A sharp spatial impulse reaches farther points later. Each point scatters
- * radially and softly rebounds within 1.5 seconds, at rest at both joins.
- * The softened radial vector is continuous at the clicked origin and its
- * displacement is strictly smaller than MAX_RIPPLE_DISPLACEMENT.
- */
+/** Equal input coordinates remain equal; collapsed faces cannot reappear. */
 export function deformRipplePoint(ripples, serial, localPoint, out = [0, 0, 0]) {
-  const x = localPoint?.[0] ?? localPoint?.x;
-  const y = localPoint?.[1] ?? localPoint?.y;
-  const z = localPoint?.[2] ?? localPoint?.z;
+  const x = localPoint?.[0] ?? localPoint?.x, y = localPoint?.[1] ?? localPoint?.y, z = localPoint?.[2] ?? localPoint?.z;
+  out[0] = x; out[1] = y; out[2] = z;
   const wave = liveWave(ripples, serial);
-  return deformAt(wave, wave ? ripples.elapsed - wave.started : 0, x, y, z, out);
+  if (!wave || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return out;
+  const elapsed = ripples.elapsed;
+  for (let i = 0; i < wave.pulses.length + wave.retiring.length; i++) {
+    const pulse = i < wave.pulses.length ? wave.pulses[i] : wave.retiring[i - wave.pulses.length];
+    if (!pulse.reducedMotion && pulseIsLive(pulse, elapsed)) scatterAt(pulse.origin, elapsed - pulse.started, pulseWeight(pulse, elapsed), x, y, z, out);
+  }
+  const hold = wave.hold;
+  if (holdIsLive(hold, elapsed)) {
+    attractAt(hold.origin, holdStrength(hold, elapsed), x, y, z, out);
+    const previous = previousStrength(hold, elapsed);
+    if (previous) attractAt(hold.previous.origin, previous, x, y, z, out);
+  }
+  return capDisplacement(x, y, z, out);
 }
 
-/** Snapshot a frame's target/time once for tight vertex loops. The numeric
- * sampler writes into a supplied xyz array and never captures source geometry.
- */
+/** Snapshot field/time once for tight CPU vertex loops; capture no geometry. */
 export function createRippleDeformer(ripples, serial) {
-  const wave = liveWave(ripples, serial);
-  const age = wave ? ripples.elapsed - wave.started : 0;
-  return (x, y, z, out) => deformAt(wave, age, x, y, z, out);
+  const wave = liveWave(ripples, serial), elapsed = ripples?.elapsed ?? 0;
+  const pulses = wave ? [...wave.pulses, ...wave.retiring]
+    .filter(pulse => !pulse.reducedMotion && pulseIsLive(pulse, elapsed))
+    .map(pulse => ({origin: pulse.origin, age: elapsed - pulse.started, weight: pulseWeight(pulse, elapsed)})) : [];
+  const hold = wave && holdIsLive(wave.hold, elapsed) ? wave.hold : undefined;
+  const strength = hold ? holdStrength(hold, elapsed) : 0;
+  const previous = hold ? previousStrength(hold, elapsed) : 0;
+  return (x, y, z, out = [0, 0, 0]) => {
+    out[0] = x; out[1] = y; out[2] = z;
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return out;
+    for (const pulse of pulses) scatterAt(pulse.origin, pulse.age, pulse.weight, x, y, z, out);
+    if (hold) {
+      attractAt(hold.origin, strength, x, y, z, out);
+      if (previous) attractAt(hold.previous.origin, previous, x, y, z, out);
+    }
+    return capDisplacement(x, y, z, out);
+  };
 }
 
-/** The same local front used by deformation, sampled on CURRENT geometry.
- * Useful for transient line fringes: only the selected serial can light up.
- * This does not retain geometry, allocate render resources, or mutate state.
- */
+/** Aggregate pulse-only tint on CURRENT geometry. A hold adds no color. */
 export function pulseIntensity(ripples, serial, localPoint) {
   const wave = liveWave(ripples, serial);
   if (!wave) return 0;
-  const x = localPoint?.[0] ?? localPoint?.x;
-  const y = localPoint?.[1] ?? localPoint?.y;
-  const z = localPoint?.[2] ?? localPoint?.z;
+  const x = localPoint?.[0] ?? localPoint?.x, y = localPoint?.[1] ?? localPoint?.y, z = localPoint?.[2] ?? localPoint?.z;
   if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return 0;
-  const distance = Math.hypot(x - wave.origin[0], y - wave.origin[1], z - wave.origin[2]);
-  const age=ripples.elapsed-wave.started;
-  if(wave.reducedMotion){const t=Math.max(0,Math.min(1,age/REDUCED_PULSE_DURATION));return .42*Math.sin(Math.PI*t)**2*Math.exp(-distance*distance/.28);}
-  return intensityAt(age, distance);
-}
-
-function smoothstep(t) {
-  return t * t * (3 - 2 * t);
+  let intensity = 0;
+  for (let i = 0; i < wave.pulses.length + wave.retiring.length; i++) {
+    const pulse = i < wave.pulses.length ? wave.pulses[i] : wave.retiring[i - wave.pulses.length];
+    if (!pulseIsLive(pulse, ripples.elapsed)) continue;
+    const distance = Math.hypot(x - pulse.origin[0], y - pulse.origin[1], z - pulse.origin[2]);
+    const age = ripples.elapsed - pulse.started;
+    const value = pulse.reducedMotion
+      ? .42 * Math.sin(Math.PI * Math.max(0, Math.min(1, age / REDUCED_PULSE_DURATION))) ** 2 * Math.exp(-distance * distance / .28)
+      : intensityAt(age, distance);
+    intensity += value * pulseWeight(pulse, ripples.elapsed);
+  }
+  return Math.min(1, intensity);
 }
 
 function intensityAt(age, distance) {
   if (age <= 0 || age >= RIPPLE_DURATION) return 0;
-  // A broad initial footprint makes an interior-face hit visible immediately;
-  // farther points still receive the single impulse at strictly later times.
   const radius = distance / FRONT_DISTANCE;
   const delay = FRONT_DELAY * (1 - Math.exp(-radius * radius));
   const sinceFront = age - delay;
@@ -139,18 +220,39 @@ function intensityAt(age, distance) {
   if (sinceFront < FRONT_ATTACK) return smoothstep(sinceFront / FRONT_ATTACK);
   return 1 - smoothstep((sinceFront - FRONT_ATTACK) / FRONT_DECAY);
 }
+function scatterAt(origin, age, weight, x, y, z, out) {
+  const dx = x - origin[0], dy = y - origin[1], dz = z - origin[2];
+  const distance = Math.hypot(dx, dy, dz);
+  if (!distance) return;
+  const strength = MAX_RIPPLE_DISPLACEMENT * intensityAt(age, distance) * weight / (distance + ORIGIN_SOFTNESS);
+  out[0] += dx * strength; out[1] += dy * strength; out[2] += dz * strength;
+}
+function holdStrength(hold, elapsed) {
+  if (!holdIsLive(hold, elapsed)) return 0;
+  if (hold.released !== null) return hold.releasedStrength * (1 - smoothstep(Math.min(1, (elapsed - hold.released) / HOLD_RELEASE)));
+  return smoothstep(Math.min(1, (elapsed - hold.started) / HOLD_ATTACK));
+}
+function previousStrength(hold, elapsed) {
+  if (!hold?.previous || !holdIsLive(hold, elapsed)) return 0;
+  return hold.previous.strength * (1 - smoothstep(Math.min(1, (elapsed - hold.started) / HOLD_ATTACK)));
+}
+function attractAt(origin, strength, x, y, z, out) {
+  if (!strength) return;
+  const dx = origin[0] - x, dy = origin[1] - y, dz = origin[2] - z;
+  const radius = Math.hypot(dx, dy, dz) / HOLD_RADIUS;
+  if (radius >= 1) return;
+  // Compact support and a C1 falloff leave distant vertices exactly still.
+  const amount = HOLD_PULL * strength * (1 - smoothstep(radius));
+  out[0] += dx * amount; out[1] += dy * amount; out[2] += dz * amount;
+}
 
-function deformAt(wave, age, x, y, z, out) {
-  out[0] = x; out[1] = y; out[2] = z;
-  if (!wave || wave.reducedMotion || age <= 0 || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return out;
-  const dx = x - wave.origin[0], dy = y - wave.origin[1], dz = z - wave.origin[2];
-  const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  if (!distance) return out;
-  const pulse = intensityAt(age, distance);
-  if (!pulse) return out;
-  const strength = MAX_RIPPLE_DISPLACEMENT * pulse / (distance + ORIGIN_SOFTNESS);
-  out[0] = x + dx * strength;
-  out[1] = y + dy * strength;
-  out[2] = z + dz * strength;
+function capDisplacement(x, y, z, out) {
+  // Combined responses stay inside the existing conservative mesh bounds.
+  const dx = out[0] - x, dy = out[1] - y, dz = out[2] - z;
+  const distance = Math.hypot(dx, dy, dz);
+  if (distance > MAX_RIPPLE_DISPLACEMENT) {
+    const scale = MAX_RIPPLE_DISPLACEMENT / distance;
+    out[0] = x + dx * scale; out[1] = y + dy * scale; out[2] = z + dz * scale;
+  }
   return out;
 }

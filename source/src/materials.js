@@ -6,8 +6,9 @@ import {gradientColor, gradientHeight} from './physical-gradients.js';
  * All variation comes from instance seeds, geometry and the current view. Time
  * never drives a blink, a random sample or a texture animation.
  */
-export const MATERIAL_KINDS = Object.freeze(['metal', 'matte', 'translucent', 'cut', 'smoked', 'cobalt', 'oxide', 'amber', 'acid-glass', 'acid-metal']);
-export const MATERIAL_NAMES = Object.freeze({metal: 'POLISHED CHROME', matte: 'ROUGH METAL', translucent: 'CLEAR GLASS', cut: 'SATIN CUT METAL', smoked: 'SMOKED GLASS', cobalt: 'COBALT LACQUER', oxide: 'OXIDE CERAMIC', amber: 'AMBER GLASS', 'acid-glass': 'LIME VIOLET GLASS', 'acid-metal': 'VIOLET BLUE METAL'});
+export const MATERIAL_KINDS = Object.freeze(['metal', 'matte', 'translucent', 'cut', 'smoked', 'cobalt', 'oxide', 'amber', 'acid-glass', 'acid-metal', 'white']);
+export const WHITE_MATERIAL_INDEX = 10;
+export const MATERIAL_NAMES = Object.freeze({metal: 'POLISHED CHROME', matte: 'ROUGH METAL', translucent: 'CLEAR GLASS', cut: 'SATIN CUT METAL', smoked: 'SMOKED GLASS', cobalt: 'COBALT LACQUER', oxide: 'OXIDE CERAMIC', amber: 'AMBER GLASS', 'acid-glass': 'LIME VIOLET GLASS', 'acid-metal': 'VIOLET BLUE METAL', white: 'WHITE CUBE'});
 // Preserve all eight existing indices. Only two duplicate opening finishes
 // become gradients; all ten finishes are represented in the twelve intakes.
 const INITIAL_MATERIALS = Object.freeze([0, 1, 2, 3, 4, 5, 8, 6, 9, 7, 2, 3]);
@@ -75,6 +76,10 @@ export function shadeFacet({material = 'matte', normal, view, center, sourceCent
       edge: tint(color, .45), edgeAlpha: glass ? .54 : .84,
       lineWidth: .65, highlight: '#f7f7ff', highlightAlpha: glass ? .025 * grazing : 0};
   }
+  if (kind === 'white') {
+    return {...style, fill: gray(186 + 63 * diffuse), alpha: 1,
+      edge: '#828582', edgeAlpha: .68, lineWidth: .55};
+  }
   if (kind === 'metal') {
     const reflection = n.map((x, i) => 2 * lightFacing * x - LIGHT[i]);
     const alignment = clamp(dot(reflection, v), -1, 1);
@@ -98,7 +103,7 @@ export function shadeFacet({material = 'matte', normal, view, center, sourceCent
     const glass = {
       translucent: {fill: '#88908e', edge: '#626d69', alpha: .035, rim: .065, highlight: '#f4f6f2'},
       smoked: {fill: '#46545a', edge: '#38474d', alpha: .14, rim: .11, highlight: '#d4e0e2'},
-      amber: {fill: '#b18443', edge: '#74552d', alpha: .12, rim: .09, highlight: '#f6e4bd'},
+      amber: {fill: '#e5a82d', edge: '#74552d', alpha: .12, rim: .09, highlight: '#f6e4bd'},
     }[kind];
     return {...style, fill: glass.fill, alpha: glass.alpha + glass.rim * grazing,
       edge: glass.edge, edgeAlpha: kind === 'translucent' ? .44 : .59, lineWidth: .58,
@@ -107,12 +112,12 @@ export function shadeFacet({material = 'matte', normal, view, center, sourceCent
   if (kind === 'cobalt') {
     const reflection = n.map((x, i) => 2 * lightFacing * x - LIGHT[i]);
     const specular = Math.pow(Math.max(0, dot(reflection, v)), 9);
-    return {...style, fill: tint([71, 102, 129], .65 + .5 * diffuse), alpha: .7,
+    return {...style, fill: tint([40, 95, 158], .65 + .5 * diffuse), alpha: .7,
       edge: '#2c4052', edgeAlpha: .86, lineWidth: .7,
       highlight: '#d5e1ea', highlightAlpha: .3 * specular, specular};
   }
   if (kind === 'oxide') {
-    return {...style, fill: tint([146, 105, 84], .6 + .55 * diffuse), alpha: .67,
+    return {...style, fill: tint([180, 97, 61], .6 + .55 * diffuse), alpha: .67,
       edge: '#624638', edgeAlpha: .8, lineWidth: .67, highlight: '#e7d5c7'};
   }
   return {...style, fill: gray(160 + 34 * diffuse), alpha: .28,

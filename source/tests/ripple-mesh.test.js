@@ -6,7 +6,7 @@ import {Vector3} from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {extractSourceGeometries} from '../src/mesh-source.js';
 import {prepareSurfacePatches} from '../src/surface-patches.js';
-import {createRippleState, emitRipple, advanceRipples, deformRipplePoint, RIPPLE_DURATION} from '../src/ripple.js';
+import {createRippleState, emitRipple, advanceRipples, deformRipplePoint, RIPPLE_DURATION, beginHold, endHold, HOLD_ATTACK, HOLD_RELEASE} from '../src/ripple.js';
 import {RippleMesh} from '../src/ripple-mesh.js';
 
 const glb = readFileSync(new URL('../public/models/three-gorges.glb', import.meta.url));
@@ -147,5 +147,47 @@ test('repeated updates allocate no new geometry, position, normal, or index buff
   target.dispose(); target.dispose();
   assert.equal(disposeEvents, 3);
   assert.throws(() => target.update({stage: 0}, ripples), /disposed/);
+  assertImmutable();
+});
+
+
+test('held surfaces and line samples share current-stage attraction without mutating shared buffers', () => {
+  const source = sources[0], ripples = createRippleState(), target = new RippleMesh(source, 11), other = new RippleMesh(source, 12);
+  const origin = Array.from(source.stages[0].positions.slice(0, 3));
+  beginHold(ripples, {serial: 11, origin}); advanceRipples(ripples, HOLD_ATTACK);
+  for (const stage of [0, 1, 3, 5]) {
+    const blend = .37, from = source.stages[stage].positions, to = source.stages[stage + 1].positions;
+    target.update({stage, blend}, ripples); other.update({stage, blend}, ripples);
+    assert.deepEqual(other.position.array, expectedPositions(source, stage, blend));
+    for (const triangle of source.stages[stage].triangleIds) for (let corner = 0; corner < 3; corner++) {
+      const at = triangle * 9 + corner * 3;
+      const local = [0, 1, 2].map(axis => from[at + axis] + (to[at + axis] - from[at + axis]) * blend);
+      const linePoint = deformRipplePoint(ripples, 11, local);
+      linePoint.forEach((value, axis) => assert.equal(target.position.array[at + axis], Math.fround(value)));
+    }
+    assert.equal(target.geometries.reduce((sum, geometry) => sum + geometry.userData.triangleCount, 0), source.stages[stage].triangleCount);
+  }
+  endHold(ripples, 11); advanceRipples(ripples, HOLD_RELEASE + 1e-10, {paused: true});
+  target.update({stage: 4, blend: .61}, ripples);
+  assert.deepEqual(target.position.array, expectedPositions(source, 4, .61));
+  assertImmutable(); target.dispose(); other.dispose(); assertImmutable();
+});
+
+test('holds and rapid pulses never resurrect empty or removed mesh faces', () => {
+  for (const source of sources) {
+    const ripples = createRippleState(), target = new RippleMesh(source, 11);
+    beginHold(ripples, {serial: 11, origin: [0, 0, 0]});
+    for (let i = 0; i < 15; i++) { emitRipple(ripples, {serial: 11, origin: [i * .02, 0, 0]}); advanceRipples(ripples, .035); }
+    for (let stage = 0; stage < source.stages.length; stage++) {
+      const geometries = target.update({stage, blend: 0}, ripples), expected = prepareSurfacePatches(source)[stage];
+      geometries.forEach((geometry, patch) => {
+        assert.equal(geometry.index.count, expected[patch].index.count);
+        assert.deepEqual(geometry.index.array.slice(0, geometry.index.count), expected[patch].index.array);
+      });
+    }
+    assert.equal(target.geometries.reduce((sum, geometry) => sum + geometry.index.count, 0), 0);
+    assert.deepEqual(target.position.array, source.stages.at(-1).positions);
+    target.dispose();
+  }
   assertImmutable();
 });

@@ -4,7 +4,7 @@ An autonomous artwork about an archive that retains its registrations while prog
 
 ## Line / surface parameters
 
-The drawing background is pure white (#FFFFFF). The visible artwork has no title or concept paragraph. Only numerical record IDs, spatial links, render status, R/E/L/F parameters remain. There is no visible toolbar, control button or help modal. Keyboard and direct-touch controls are described here and in the canvas accessible label.
+The drawing background is pure white (#FFFFFF). The visible artwork has no title or concept paragraph. Only numerical record IDs, spatial links, render status, R/E/L/F parameters remain. Label backing is a quiet light gray (#F0F0F0). There is no visible toolbar, control button or help modal. Keyboard and direct-touch controls are described here and in the canvas accessible label.
 
 Each selected surviving source edge produces exactly one uninterrupted polyline. Its endpoints are the actual current quantized vertices. Subdivision samples the same local deformation as the selected model's surfaces, allowing its own edges to bend and disperse during the response. There is no separate bowing-arc layer, split gap, time-varying line-visibility gate or duplicate entry outline. LOD selection remains bounded. Native WebGL lines use stable0.55 opacity; compatibility lines are0.55 CSS px on desktop and0.6px on phones.
 
@@ -21,9 +21,9 @@ Desktop edge-field work is capped at1,200 source edges ×6 segments; phone uses5
 
 The primary renderer uses Three.js WebGL2 and all 28,384 original GLB triangles across five sources and29 mesh parts. It is no longer a Canvas-only material approximation.
 
-- Ten shared finishes: polished chrome, rough metal, clear glass, satin-cut metal, smoked glass, cobalt lacquer, oxide ceramic, amber glass, lime–violet gradient glass and violet–blue gradient metal use built-in MeshStandardMaterial / MeshPhysicalMaterial.
+- Eleven shared finishes: polished chrome, rough metal, clear glass, satin-cut metal, smoked glass, cobalt lacquer, oxide ceramic, amber glass, lime–violet gradient glass and violet–blue gradient metal and matte white use built-in MeshStandardMaterial / MeshPhysicalMaterial.
 - A generated RoomEnvironment is prefiltered through PMREM for environment illumination and reflections. No external HDR service or image is required.
-- ACES tone mapping, environment lighting and directional illumination provide depth and surface response. A transparent shadow receiver draws only soft ground shadows; no ground mirror or opaque floor color is present.
+- ACES tone mapping, environment lighting and directional illumination provide depth and surface response. Ground shadows, shadow maps, ground reflection and floor receiver geometry are all absent; material/environment reflections remain.
 - Glass uses transmission, thickness and index of refraction, rather than pretending low opacity is physical glass. Phone transmission resolution and roughness are reduced for cost.
 - InstancedMesh batches share source/stage geometry and materials. Each instance carries an independent matrix and GPU morph weight.
 
@@ -41,17 +41,17 @@ The automatic processing/intake clock runs at1.55× the previous release pace. S
 
 ## More simultaneous instances and continued accumulation
 
-The first view contains12 instances on desktop or8 on phones, instead of3. Intake becomes faster as independent copies retire. The default PBR admission budget is26 desktop /16 phone, dynamically adjusted to drawing cost, with a strict32-instance safety bound. Detailed geometry is shared, not cloned into a growing mesh pool.
+The first view contains14 instances on desktop or10 on phones: all five original sculptures plus five procedural white cubes, and four extra original instances on desktop. Intake becomes faster as independent copies retire. The default PBR admission budget is26 desktop /16 phone, dynamically adjusted to drawing cost, with a strict32-instance safety bound. Detailed geometry is shared, not cloned into a growing mesh pool.
 
 Each instance slowly rotates on independently seeded axes and drifts within a small bounded neighborhood. These poses are shared by the physical mesh, curves, registry labels and picking. Pause freezes this motion; reduced-motion preference suppresses it.
 
-The initial12 include all ten finishes, with two gradient instances. Later admissions select acid gradients about23% of the time, alongside neutral and solid-color finishes. Two shared1×128 RGBA maps use1KiB of pixel data in total. Original source-local UVs remain attached through processing, patch views and local responses; there is no per-face random coloring. Canvas compatibility uses source-height facet tints and does not claim physical transmission or smooth GPU texture rendering.
+The original instances retain the existing colored/neutral/gradient palette; procedural cubes use matte white. Later admissions select acid gradients about23% of the time, alongside neutral and solid-color finishes. Two shared1×128 RGBA maps use1KiB of pixel data in total. Original source-local UVs remain attached through processing, patch views and local responses; there is no per-face random coloring. Canvas compatibility uses source-height facet tints and does not claim physical transmission or smooth GPU texture rendering.
 
-Cumulative registrations never reset. Old records are represented by exact-count archive bundles, excluding active instances. Detailed instances, recent descriptors and bundle rendering remain bounded. This provides increasing density and archived totals without unbounded RAM or scene-object growth. New forms are copies and transformations of the five real sources, not newly generated AI assets.
+Cumulative registrations never reset. Old records are represented by exact-count archive bundles, excluding active instances. Detailed instances, recent descriptors and bundle rendering remain bounded. This provides increasing density and archived totals without unbounded RAM or scene-object growth. Forms are copies and transformations of the five original sources plus one shared procedural BoxGeometry source. Cubes have twelve edges and twelve actual triangles, join the same registry/erasure process and vary in seeded scale from0.3 to1.5. These are procedural primitives, not AI-generated assets.
 
-## Ground mirror removed
+## No ground effects
 
-The global planar mirror, capture render target and reflection pass are removed. The physical renderer has a transparent ShadowMaterial receiver, with a1024px desktop or512px phone shadow map. It draws no solid floor color. Canvas compatibility adds no fake mirror or shadow plane. The original sculpture pedestals remain unchanged. Physical material reflections and environment illumination remain, and soft cast shadows follow the surviving geometry. Erased mesh stages stop casting.
+There is no ground mirror, shadow receiver, cast-shadow map or floor plate. Physical material reflections and environment illumination remain. Original sculpture pedestals are source geometry and remain unchanged.
 
 ## Explicit compatibility path
 
@@ -59,15 +59,17 @@ If WebGL2 is unavailable, initialization fails or the context is lost, the same 
 
 ## Viewing and accessibility
 
-The camera moves automatically. One-finger/mouse drag rotates naturally; two fingers pan and pinch; right mouse drag pans; the wheel zooms. These controls change observation, never the processing rule. After2.4 seconds without navigation, manual offsets blend smoothly back into the automatic path. Single-pointer presses remain pending until a6px drag threshold; two fingers take over immediately. The automatic camera continuously changes between wide panoramic rotation, approach, interior weaving and pullout. The 144-second envelope has no hard cuts or reset jumps. In the interior phase it travels through the occupied model group and looks ahead along its route. It adapts to current instance placement with conservative clearance, using a small near plane for interior views. This is bounding-volume guidance, not triangle-level collision detection. Only recognized navigation freezes the base view and resumes it with a smooth blend. A stationary tap or Enter impulse has no effect on the automatic camera clock or pose.
+The camera moves automatically. One-finger/mouse drag rotates naturally; two fingers pan and pinch; right mouse drag pans; the wheel zooms. These controls change observation, never the processing rule. After2.4 seconds without navigation, manual offsets blend smoothly back into the automatic path. Single-pointer presses remain pending until a6px drag threshold; two fingers take over immediately. The opening panorama begins about22% closer, then blends continuously into the existing wide rotation, approach, interior weaving and pullout. The 144-second envelope has no hard cuts or reset jumps. In the interior phase it travels through the occupied model group and looks ahead along its route. It adapts to current instance placement with conservative clearance, using a small near plane for interior views. This is bounding-volume guidance, not triangle-level collision detection. Only recognized navigation freezes the base view and resumes it with a smooth blend. A stationary tap or Enter impulse has no effect on the automatic camera clock or pose.
 
-Pause stops the process and automatic view but leaves manual inspection available. Tap a visible surviving form to scatter and gather only that instance's current vertices and source curves. Enter activates it at a central visible curve. A hit-local impulse starts within the next drawing frame and returns within1.5 seconds; all instance poses and every unselected model stay unchanged. At most two independently selected targets can respond at once, and repeat taps cannot reset an active wave. The regular shared source buffers remain immutable. Temporary target-owned position, normal and index buffers follow the current quantization stage and are disposed when the response ends. Logically erased geometry cannot be selected or restored. User-triggered responses finish even while processing is paused; reduced motion replaces deformation with a soft0.22-second local color fade.
+Pause stops the process and automatic view but leaves manual inspection available. Tap a visible surviving form to scatter and gather only that instance's current vertices and source curves. Enter activates it at a central visible curve. A hit-local impulse starts within the next drawing frame and returns within1.5 seconds; all instance poses and every unselected model stay unchanged. At most two independently selected targets use temporary geometry at once. Repeated taps on the same object respond immediately at their own hit positions: four active pulses and bounded short retiring tails avoid an unbounded queue. The regular shared source buffers remain immutable. Temporary target-owned position, normal and index buffers follow the current quantization stage and are disposed when the response ends. Logically erased geometry cannot be selected or restored. User-triggered responses finish even while processing is paused; reduced motion replaces deformation with a soft0.22-second local color fade.
 
 Picking uses submitted curves/triangles, not whole registration boxes. Pointer-down latches the exact hit model and local surface position, so a moving camera cannot switch the selected object before a stationary tap is released. Cancelled gestures and pinch transitions cannot emit ghost taps. The PBR path additionally raycasts actual current mesh patches with per-instance morph weights, including the deformed temporary geometry. Empty space and erased records do nothing.
 
 The selected model's existing edges can receive a temporary restrained tint during the same local impulse. No offset fringes, additional arcs or particles are created.
 
-Visible point marks and their animation/GPU resources are removed. There is no P counter. Soft ground shadows, environment lighting and physical material response remain.
+Visible point marks and their animation/GPU resources are removed. There is no P counter. Environment lighting and physical material response remain; ground shadows and mirror effects are absent.
+
+A stationary400ms long press draws nearby vertices toward the captured local hit. The camera continues moving. Release gives a smooth0.6s return; a second finger or movement beyond the hold slop releases attraction and hands navigation over safely. Hold G for the keyboard equivalent. Cancellation/focus loss cannot leave a sustained force.
 
 Keyboard arrows rotate, Shift+arrows pan, +/− zoom, Home resets and Space pauses. Reduced-motion preference begins paused and suppresses automatic flight even if processing is manually resumed. Hidden tabs suspend execution without skipping unseen time. The visible control cluster and modal have been removed; Space pauses and Home resets the view.
 

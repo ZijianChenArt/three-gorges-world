@@ -1,12 +1,18 @@
-# Release validation — 5.6.0
+# Release validation — 5.6.1
 
-183 automated tests pass, followed by the production Vite build.
+206 automated tests pass, followed by the production Vite build.
 
 ## This revision
 
-- HTML/CSS, Canvas clearing, label backing and the physical scene all use exact pure white (#FFFFFF).
+- One shared procedural cube source participates in actual edge/triangle reduction, registry counts, picking and local response. Initial scenes preserve all five original sources plus five cubes; sizes and admissions are seeded and bounded.
+- The opening is closer, labels are lightly gray-backed, selected colors are more saturated, and all ground effects are removed.
+- A400ms hold attracts only the selected current geometry and releases smoothly. G is the keyboard equivalent. Repeated same-model taps are accepted immediately with bounded stacked pulses.
+- Pointer cancellation, second-finger takeover, focus loss, erased geometry, pause/reduced motion and camera-neutral holds have test coverage.
 
-- Ground mirror geometry, Reflector import, capture target and reflection hook are removed. The main draw submits one scene render and cleanup has no dangling floor resource. Environment/PBR reflections remain; a transparent soft-shadow receiver replaces the mirror.
+
+- HTML/CSS, Canvas clearing, the physical scene all use exact pure white (#FFFFFF); labels use light-gray backing.
+
+- Ground mirror geometry, Reflector import, capture target and reflection hook are removed. The main draw submits one scene render and cleanup has no dangling floor resource. Environment/PBR reflections remain; ground shadows and receiver geometry are also removed.
 
 - Actual source edges now produce one uninterrupted sampled polyline each, with no independent bowing arcs, split gaps, appearance gates, duplicate entry outline or added chromatic fringes. Shared model deformation bends the existing edge samples.
 - Full-viewport rendering replaces mismatched top/bottom bands. Six-plane clipping keeps near-plane crossings finite and interpolates source coordinates for accurate picking. The actual triangle budget remains bounded; redundant resize events do not clear the Canvas.
@@ -22,7 +28,7 @@
 ## Retained checks
 
 - Visible point generation, animation data, point textures, Three.Points objects and their GPU buffers are removed. No P counter or point marks remain. Compatibility fields report zero points.
-- Ground shadows use bounded512/1024px maps and a transparent ShadowMaterial receiver. Erased source geometry cannot cast, and no ground mirror is rendered.
+- No ground shadow map, caster, receiver or mirror remains. Material environment lighting is preserved.
 - The camera follows a forward-looking interior route through the model group, guided by current instance centers and conservative bounds. Automatic view freezes during manual inspection and resumes with smooth blending.
 - Ten bounded shared material finishes include rough/polished metals, clear/smoked/amber glass, cobalt lacquer, oxide ceramic and two acid gradients. Shared small texture maps and source-local UV continuity are checked. Seeded intake and selective color distribution are checked.
 - Each instance has independent slow multi-axis rotation and bounded drift; Canvas/PBR transforms match numerically and pause/reduced motion are covered.
@@ -48,6 +54,8 @@ A prior CPU-only local preparation benchmark constructed the shared full-mesh st
 
 ## Verification limits
 
-The available cloud browser has no usable WebGL2 GPU renderer. Real PBR appearance, GPU shader execution, physical glass, soft ground-shadow appearance and GPU frame rate have NOT been visually verified on hardware. Published-browser checks validate the explicitly labeled Canvas compatibility path. Tests of Three.js objects are not presented as GPU-rendered evidence.
+The latest cube/hold/repeated-tap interaction revision was checked with automated tests and offline Canvas renders. Its live browser interaction check remains outstanding.
+
+The available cloud browser has no usable WebGL2 GPU renderer. Real PBR appearance, GPU shader execution, physical glass, GPU frame rate have NOT been visually verified on hardware. Published-browser checks validate the explicitly labeled Canvas compatibility path. Tests of Three.js objects are not presented as GPU-rendered evidence.
 
 The camera uses conservative bounding-volume guidance, not triangle-level collision detection. It can pass through open structural volumes and may cross a changing surface. Physical iOS callout behavior and real multi-touch remain untested. No GPU restrictions or blocked local preview were bypassed.

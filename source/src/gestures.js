@@ -1,6 +1,6 @@
 /** Pure pointer arbitration shared by mouse, pen and touch. No synthetic DOM events. */
 export class GestureController{
-  constructor(actions={}){this.actions=actions;this.pointers=new Map();this.mode='idle';this.held=false;this.holdDelay=480;this.isNavigating=false;}
+  constructor(actions={}){this.actions=actions;this.pointers=new Map();this.mode='idle';this.held=false;this.holdDelay=400;this.isNavigating=false;}
   pair(){const p=[...this.pointers.values()];return{x:(p[0].x+p[1].x)/2,y:(p[0].y+p[1].y)/2,distance:Math.max(1,Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y))};}
   releaseHold(){if(this.held){this.actions.holdEnd?.();this.held=false;}}
   startNavigation(){if(!this.isNavigating){this.isNavigating=true;this.actions.navigationStart?.();}}
@@ -22,7 +22,19 @@ export class GestureController{
     if(this.mode==='orbit')this.actions.orbit?.(dx,dy);
     if(this.mode==='pan')this.actions.pan?.(dx,dy);
   }
-  tick(now){if(!this.actions.holdStart||this.mode!=='pending'||this.pointers.size!==1)return;const p=[...this.pointers.values()][0];if(p.button===0&&now-p.started>=this.holdDelay){this.mode='hold';this.held=!!this.actions.holdStart?.(p.startX,p.startY);}}
+  tick(now){
+    if(!this.actions.holdStart||this.mode!=='pending'||this.pointers.size!==1)return;
+    const p=[...this.pointers.values()][0];
+    if(p.button===0&&Number.isFinite(now)&&now-p.started>=this.holdDelay){
+      // Consume every long press, including an empty hit or rejected hold. It
+      // must never become a delayed tap, nor repick under a moving camera.
+      this.mode='hold';
+      if(p.hit===null)return;
+      this.held=!!(p.hit===undefined
+        ?this.actions.holdStart(p.startX,p.startY)
+        :this.actions.holdStart(p.startX,p.startY,p.hit));
+    }
+  }
   up(id,cancelled=false){
     const p=this.pointers.get(id);if(!p)return;
     if(this.mode==='pending'&&p.button===0&&!cancelled){

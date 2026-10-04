@@ -48,9 +48,9 @@ test('macrocycle alternates real panoramic distance with entry into the occupied
       if(phase==='overview'){
         wide++;furthest=Math.max(furthest,distance);
         assert.ok(!contains(bounds,eye),'overview is physically outside the cluster');
-        assert.ok(camera.distance>(phone?24:15),'overview has wide physical camera distance');
+        assert.ok(camera.distance>(phone?18:11),'overview has wide physical camera distance');
       }
-      assert.ok(eye[1]>-7.7,'always above the mirror');
+      assert.ok(eye[1]>-7.7,'always above the lower safety plane');
     }
     assert.ok(wide>=80,'sustained panoramic intervals across three cycles');
     assert.ok(interior>samples*.55,`most interior-phase samples enter occupied xyz bounds: ${interior}/${samples}`);
@@ -208,7 +208,7 @@ test('frame projector snapshots camera math without per-vertex trigonometry',()=
   assert.deepEqual(frame(p),expected);assert.notDeepEqual(frame(p),project(p,c));
 });
 
-test('projection stays finite at near/far planes and manual inspection cannot dip under the mirror',()=>{
+test('projection stays finite at near/far planes and manual inspection stays above the lower safety limit',()=>{
   assert.ok(FLIGHT_NEAR>=.15&&FLIGHT_NEAR<=.25);
   for(const distance of [-100,0,.01,18,Infinity,NaN]){
     const c={...automaticCamera(0),distance},b=cameraBasis(c);assert.ok(b.distance>=MIN_FLIGHT_DISTANCE);
@@ -254,3 +254,5 @@ test('Three perspective and orthographic projections match Canvas including off-
     }
   }
 });
+
+test('opening panorama is about22% closer and blends back continuously as the route proceeds',()=>{for(const phone of[false,true]){const scene=sceneAt(0,phone),camera=automaticCamera(0,phone,scene),later=automaticCamera(144,phone,scene);assert.ok(camera.distance<later.distance*.86);for(const t of[0,5,16,32,44]){const a=cameraBasis(automaticCamera(t,phone,scene)),b=cameraBasis(automaticCamera(t+.01,phone,scene));assert.ok(length(difference(a.eye,b.eye))<.04);}}});

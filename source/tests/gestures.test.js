@@ -153,3 +153,56 @@ test('legacy hold is released before second-finger navigation starts',()=>{
   g.down({id:2,x:100,y:0});g.up(1);g.up(2);
   assert.deepEqual(events,[['holdStart',0,0],['holdEnd'],['navigationStart'],['navigationEnd']]);
 });
+
+test('a stationary hold begins exactly at 400ms using the same latched hit reference as tap',()=>{
+  const{g,events}=fixture({navigation:true}),hit=Object.freeze({serial:7,localPoint:Object.freeze({x:.2,y:.1,z:0})});
+  g.down({id:1,x:100,y:200,now:10,hit});g.move({id:1,x:103,y:202});
+  g.tick(409);assert.deepEqual(events,[]);assert.equal(g.mode,'pending');
+  g.tick(410);assert.equal(events.length,1);assert.deepEqual(events[0].slice(0,3),['holdStart',100,200]);assert.strictEqual(events[0][3],hit);
+  assert.equal(g.mode,'hold');assert.equal(g.isNavigating,false);
+  g.tick(900);g.up(1);g.up(1);assert.deepEqual(events.slice(1),[['holdEnd']]);
+});
+
+test('an explicit empty hit consumes a long press without repicking, navigation or a ghost tap',()=>{
+  const{g,events}=fixture({navigation:true});
+  g.down({id:1,x:10,y:20,now:0,hit:null});g.tick(400);g.tick(900);g.up(1);
+  assert.deepEqual(events,[]);assert.equal(g.held,false);assert.equal(g.mode,'idle');
+  g.down({id:1,x:10,y:20,now:1000,hit:null});g.tick(1100);g.up(1);
+  assert.deepEqual(events,[['tap',10,20,null]]);
+});
+
+test('a rejected hold still consumes the long press and cannot emit holdEnd or tap',()=>{
+  const events=[],hit={serial:1},g=new GestureController({holdStart:(x,y,payload)=>{events.push(['holdStart',payload]);return false;},holdEnd:()=>events.push(['holdEnd']),tap:()=>events.push(['tap'])});
+  g.down({id:1,x:0,y:0,hit});g.tick(400);g.tick(1000);g.up(1);g.cancel();
+  assert.deepEqual(events,[['holdStart',hit]]);assert.equal(g.held,false);
+});
+
+test('a held pointer releases before navigation only beyond twelve pixels and never taps',()=>{
+  const{g,events}=fixture({navigation:true}),hit={serial:9};
+  g.down({id:1,x:10,y:20,hit});g.tick(400);g.move({id:1,x:22,y:20});
+  assert.deepEqual(events,[['holdStart',10,20,hit]]);assert.equal(g.isNavigating,false);
+  g.move({id:1,x:23,y:20});g.tick(1000);g.up(1);
+  assert.deepEqual(events,[['holdStart',10,20,hit],['holdEnd'],['navigationStart'],['orbit',1,0],['navigationEnd']]);
+});
+
+test('second pointer cancels pending or active holds and neither remaining pointer can ghost-tap',()=>{
+  for(const held of [false,true]){
+    const{g,events}=fixture({navigation:true}),hit={serial:3};
+    g.down({id:1,x:0,y:0,hit});if(held)g.tick(400);
+    g.down({id:2,x:100,y:0,now:450,hit:{serial:4}});g.tick(1000);g.up(2);g.tick(2000);g.up(1);
+    assert.deepEqual(events,held?[['holdStart',0,0,hit],['holdEnd'],['navigationStart'],['navigationEnd']]:[['navigationStart'],['navigationEnd']]);
+    assert.equal(g.held,false);assert.equal(g.pointers.size,0);
+  }
+});
+
+test('repeat, pointer-cancel, focus-loss and lost-capture style releases never leave an orphan hold',()=>{
+  const{g,events}=fixture({navigation:true});
+  for(let i=0;i<6;i++){
+    const hit={serial:i};g.down({id:1,x:0,y:0,now:i*1000,hit});g.tick(i*1000+400);
+    if(i%3===0)g.up(1,true);else if(i%3===1)g.cancel();else g.up(1);
+    g.up(1,true);g.cancel();assert.equal(g.held,false);assert.equal(g.mode,'idle');
+  }
+  assert.equal(events.filter(e=>e[0]==='holdStart').length,6);
+  assert.equal(events.filter(e=>e[0]==='holdEnd').length,6);
+  assert.equal(events.filter(e=>['tap','navigationStart','navigationEnd'].includes(e[0])).length,0);
+});

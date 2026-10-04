@@ -3,8 +3,8 @@
 export const GRADIENT_HEIGHT = 128;
 export const GRADIENT_KINDS = Object.freeze(['acid-glass', 'acid-metal']);
 const STOPS = Object.freeze({
-  'acid-glass': Object.freeze([[201, 255, 50], [94, 255, 200], [167, 80, 255]].map(Object.freeze)),
-  'acid-metal': Object.freeze([[237, 68, 250], [129, 77, 255], [38, 70, 255]].map(Object.freeze)),
+  'acid-glass': Object.freeze([[190, 255, 12], [40, 255, 176], [170, 36, 255]].map(Object.freeze)),
+  'acid-metal': Object.freeze([[250, 25, 255], [110, 40, 255], [16, 40, 255]].map(Object.freeze)),
 });
 const unit = value => Math.max(0, Math.min(1, Number.isFinite(value) ? value : .5));
 
