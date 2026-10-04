@@ -5,7 +5,6 @@ import {patchIndex, phaseInfo} from './surface-patches.js';
 // or random selection is retained between calls, so paused time is exact.
 export const MAX_FIELD_EDGES = 1024;
 export const MAX_FIELD_SEGMENTS = 12;
-export const MAX_FIELD_POINTS = 2048;
 const TAU = Math.PI * 2;
 const validPoint = p => p?.length >= 3 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Number.isFinite(p[2]);
 const limit = (value, fallback, max) => Math.min(max, Math.max(0, Math.floor(Number.isFinite(value) ? value : fallback)));
@@ -34,7 +33,7 @@ function sourceNormal(a, b) {
 }
 
 /**
- * Sample only surviving archive edges into curved polylines and points.
+ * Sample only surviving archive edges into curved polylines.
  *
  * `elapsed` must be the archive clock, not wall time: a fixed value freezes all
  * local shape/alpha changes. Spatial patch identity and curvature normals use
@@ -42,7 +41,7 @@ function sourceNormal(a, b) {
  * vertices. Empty stages produce nothing. Optional split gaps remove portions
  * of those same arcs; they never introduce a new connection or detached prop.
  *
- * Work is O(min(activeEdges.length, edgeBudget) * segments + pointBudget), with
+ * Work is O(min(activeEdges.length, edgeBudget) * segments), with
  * hard caps above. Each selected edge produces at most two curves and at most
  * `segments` line segments total, including when the edge is split.
  */
@@ -51,21 +50,20 @@ export function sampleEdgeField(frame, {
   reducedMotion = false,
   edgeBudget = 192,
   segments = 5,
-  pointBudget = 128,
 } = {}) {
-  const curves = [], points = [];
-  const result = {curves, points, logicalEdges: frame?.edgeCount ?? 0, renderedSegments: 0, renderedPoints: 0};
+  const curves = [];
+  // Empty point output is retained only for renderer compatibility. The artwork
+  // has no point layer, point sampling, or point animation data.
+  const result = {curves, points: [], logicalEdges: frame?.edgeCount ?? 0, renderedSegments: 0, renderedPoints: 0};
   const edges = frame?.activeEdges;
   if (!edges?.length || frame.edgeCount === 0) return result;
   const count = Math.min(edges.length, limit(edgeBudget, 192, MAX_FIELD_EDGES));
   const subdivisions = Math.max(1, limit(segments, 5, MAX_FIELD_SEGMENTS));
-  const pointCount = limit(pointBudget, 128, MAX_FIELD_POINTS);
   if (!count) return result;
   const time = reducedMotion || !Number.isFinite(elapsed) ? 0 : Math.max(0, elapsed);
   const key = frame.instance?.key ?? frame.instance?.serial ?? frame.serial ?? 0;
   const source = frame.model?.stages?.[0]?.vertices ?? frame.vertices;
   const rotation = hash(key) % edges.length;
-  const selected = [];
   const phases = new Map();
 
   for (let slot = 0; slot < count; slot++) {
@@ -113,29 +111,7 @@ export function sampleEdgeField(frame, {
       addCurve(0, left, leftSteps);
       addCurve(right, 1, subdivisions - leftSteps);
     } else addCurve(0, 1, subdivisions);
-    selected.push({at, normal, length, edge: [a, b], patch, phase, local, edgeKey, split, left, right});
   }
 
-  // Points sit on the selected surviving arcs (often at their split tips). They
-  // are another reading of the source topology, not independent dust particles.
-  const samples = Math.min(pointCount, selected.length * 4);
-  for (let i = 0; i < samples; i++) {
-    const record = selected[samples <= selected.length ? Math.floor(i * selected.length / samples) : i % selected.length];
-    const ordinal = Math.floor(i / selected.length);
-    const side = ((hash(record.edgeKey) >>> 0) + ordinal) % 4;
-    const rest = side === 0 ? 0 : side === 1 ? 1 : side === 2 ? (record.split ? record.left : .32) : (record.split ? record.right : .68);
-    const orbitPhase=time*(.68+random(record.edgeKey,6)*.35)+random(record.edgeKey,7)*TAU+ordinal*1.3;
-    const travel=reducedMotion?rest:.5+.5*Math.sin(orbitPhase);
-    const t=reducedMotion?rest:rest*.35+travel*.65;
-    const breathing=reducedMotion?0:Math.sin(orbitPhase*.63)**2;
-    const lift=reducedMotion?0:record.length*(.03+.14*record.phase.pointAlpha)*breathing;
-    points.push({
-      position: record.at(t).map((value,axis)=>value+record.normal[axis]*lift),
-      alpha: .48+.52*record.phase.pointAlpha*(.65+.35*breathing),
-      edge: record.edge.slice(),
-      patch: record.patch,
-    });
-  }
-  result.renderedPoints = points.length;
   return result;
 }

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createRippleState, emitRipple, advanceRipples, deformRipplePoint, hasRipple, MAX_RIPPLES, RIPPLE_DURATION, MAX_RIPPLE_DISPLACEMENT} from '../src/ripple.js';
+import {createRippleState, emitRipple, advanceRipples, deformRipplePoint, hasRipple, MAX_RIPPLES, RIPPLE_DURATION, MAX_RIPPLE_DISPLACEMENT, pulseIntensity, createRippleDeformer} from '../src/ripple.js';
 
 const zero = [0, 0, 0];
 const displacement = (a, b) => Math.hypot(...a.map((value, axis) => value - b[axis]));
@@ -14,7 +14,7 @@ test('a tap deforms only the exact serial, starts at rest and returns exactly ho
   assert.equal(hasRipple(ripples, 1), true);
   assert.equal(hasRipple(ripples, 2), false);
   assert.deepEqual(deformRipplePoint(ripples, 1, local), local);
-  advanceRipples(ripples, 2);
+  advanceRipples(ripples, .16);
   assert.ok(displacement(deformRipplePoint(ripples, 1, local), local) > .1);
   for (const serial of [0, 2, 10, 99999, undefined]) assert.deepEqual(deformRipplePoint(ripples, serial, local), local);
   assert.equal(advanceRipples(ripples, RIPPLE_DURATION), true);
@@ -24,26 +24,75 @@ test('a tap deforms only the exact serial, starts at rest and returns exactly ho
   assert.equal(advanceRipples(ripples, .1), false);
 });
 
-test('the local wave front spreads outward and each vertex gathers by 4.8 seconds', () => {
+test('the impulse is measurable at 33ms, travels locally, and rebounds within .82 seconds', () => {
   const ripples = createRippleState(), near = [.1, 0, 0], far = [1, 0, 0];
   tap(ripples);
-  advanceRipples(ripples, .3);
-  assert.ok(displacement(deformRipplePoint(ripples, 1, near), near) > 0);
+  advanceRipples(ripples, .033);
+  assert.ok(displacement(deformRipplePoint(ripples, 1, near), near) > .02);
+  assert.ok(pulseIntensity(ripples, 1, near) > .2);
+  const footprintEdge = [.3, 0, 0];
+  assert.ok(pulseIntensity(ripples, 1, footprintEdge) > .4);
+  assert.ok(displacement(deformRipplePoint(ripples, 1, footprintEdge), footprintEdge) > .1);
   assert.deepEqual(deformRipplePoint(ripples, 1, far), far);
-  advanceRipples(ripples, 2.2);
+  assert.equal(pulseIntensity(ripples, 1, far), 0);
+  advanceRipples(ripples, .192);
   const largest = displacement(deformRipplePoint(ripples, 1, far), far);
-  assert.ok(largest > .3);
-  advanceRipples(ripples, 1.8);
-  assert.ok(displacement(deformRipplePoint(ripples, 1, far), far) < largest * .2);
-  advanceRipples(ripples, .5);
+  assert.ok(largest > .38);
+  advanceRipples(ripples, .2);
+  assert.ok(displacement(deformRipplePoint(ripples, 1, far), far) < largest * .3);
+  advanceRipples(ripples, RIPPLE_DURATION - ripples.elapsed);
   assert.deepEqual(deformRipplePoint(ripples, 1, far), far);
-  assert.ok(RIPPLE_DURATION >= 4 && RIPPLE_DURATION <= 5);
+  assert.equal(pulseIntensity(ripples, 1, far), 0);
+  assert.ok(RIPPLE_DURATION >= .5 && RIPPLE_DURATION <= .9);
+});
+
+test('near and far points have distinct single sharp peaks followed by a softer decay', () => {
+  const points = [[.1, 0, 0], [.5, 0, 0], [1, 0, 0], [2, 0, 0]];
+  const peaks = points.map(local => {
+    const ripples = createRippleState(); tap(ripples);
+    const samples = [];
+    for (let i = 0; i < 820; i++) {
+      advanceRipples(ripples, .001);
+      samples.push(pulseIntensity(ripples, 1, local));
+    }
+    const maximum = Math.max(...samples), peak = samples.indexOf(maximum);
+    assert.ok(maximum > .999);
+    assert.ok(samples.slice(0, peak).every((value, at) => value <= samples[at + 1]));
+    assert.ok(samples.slice(peak).every((value, at) => at === 0 || value <= samples[peak + at - 1]));
+    const onset = samples.findIndex(value => value > 0);
+    const last = samples.findLastIndex(value => value > 0);
+    assert.ok(peak - onset <= 29);
+    assert.ok(last - peak > (peak - onset) * 8);
+    assert.equal(samples.at(-1), 0);
+    return peak;
+  });
+  for (let i = 1; i < peaks.length; i++) assert.ok(peaks[i] - peaks[i - 1] > 45);
+});
+
+test('fringe intensity shares the radial deformation envelope and exact picked origin', () => {
+  const origin = [.7, -.4, .2], local = [.8, -.4, .2];
+  const ripples = createRippleState(); tap(ripples, 9, origin); advanceRipples(ripples, .033);
+  const before = JSON.stringify(ripples);
+  const intensity = pulseIntensity(ripples, 9, local);
+  assert.ok(intensity > .2 && intensity <= 1);
+  assert.equal(pulseIntensity(ripples, 10, local), 0);
+  assert.equal(pulseIntensity(undefined, 9, local), 0);
+  assert.equal(pulseIntensity(ripples, 9, [NaN, 0, 0]), 0);
+  const expectedDistance = MAX_RIPPLE_DISPLACEMENT * intensity * .1 / (.1 + .22);
+  assert.ok(Math.abs(displacement(deformRipplePoint(ripples, 9, local), local) - expectedDistance) < 1e-12);
+  assert.deepEqual(deformRipplePoint(ripples, 9, origin), origin);
+  assert.ok(pulseIntensity(ripples, 9, origin) > .99);
+  assert.equal(pulseIntensity(ripples, 9, {x: local[0], y: local[1], z: local[2]}), intensity);
+  const out = [0, 0, 0];
+  createRippleDeformer(ripples, 9)(...local, out);
+  assert.deepEqual(out, deformRipplePoint(ripples, 9, local));
+  assert.equal(JSON.stringify(ripples), before);
 });
 
 test('point deformation is deterministic, bounded, radial, and does not change source coordinates or state', () => {
   const ripples = createRippleState(), origin = [.1, -.2, .3];
   tap(ripples, 11, origin);
-  advanceRipples(ripples, 2);
+  advanceRipples(ripples, .16);
   const local = [.3, 0, .5], before = JSON.stringify(ripples);
   const deformed = deformRipplePoint(ripples, 11, local);
   const offset = deformed.map((value, axis) => value - local[axis]);
@@ -66,22 +115,22 @@ test('point deformation is deterministic, bounded, radial, and does not change s
 
 test('front, tail, and clicked origin join continuously with no coordinate discontinuity', () => {
   const local = [.4, 0, 0];
-  const arrival = 1.35 * (1 - Math.exp(-.4 / .9));
-  for (const time of [arrival, RIPPLE_DURATION]) {
+  const arrival = .5 * (1 - Math.exp(-((.4 / 1.5) ** 2)));
+  for (const time of [arrival, arrival + .32, RIPPLE_DURATION]) {
     const values = [time - 1e-6, time, time + 1e-6].map(elapsed => {
       const ripples = createRippleState(); tap(ripples); advanceRipples(ripples, elapsed);
       return displacement(deformRipplePoint(ripples, 1, local), local);
     });
-    assert.ok(values.every(value => value < 1e-9));
+    assert.ok(values.every(value => value < 2e-9));
   }
-  const ripples = createRippleState(); tap(ripples); advanceRipples(ripples, 2);
+  const ripples = createRippleState(); tap(ripples); advanceRipples(ripples, .16);
   assert.ok(displacement(deformRipplePoint(ripples, 1, [1e-8, 0, 0]), zero) < 1e-7);
 });
 
 test('repeated taps and target overflow are bounded without resetting or evicting moving targets', () => {
   const ripples = createRippleState();
   for (let serial = 1; serial <= MAX_RIPPLES; serial++) assert.equal(tap(ripples, serial), true);
-  advanceRipples(ripples, 2);
+  advanceRipples(ripples, .16);
   const before = JSON.stringify(ripples), pointBefore = deformRipplePoint(ripples, 1, [.4, 0, 0]);
   for (let i = 0; i < 100; i++) {
     assert.equal(tap(ripples, 1, [.2, 0, 0]), false);
@@ -98,20 +147,21 @@ test('repeated taps and target overflow are bounded without resetting or evictin
 test('archive pause permits a finite user response and reduced motion suppresses deformation', () => {
   const ripples = createRippleState(), local = [.4, 0, 0];
   tap(ripples);
-  assert.equal(advanceRipples(ripples, 2, {paused: true}), true);
+  assert.equal(advanceRipples(ripples, .16, {paused: true}), true);
   assert.ok(displacement(deformRipplePoint(ripples, 1, local), local) > 0);
   advanceRipples(ripples, RIPPLE_DURATION, {paused: true});
   assert.deepEqual(deformRipplePoint(ripples, 1, local), local);
-  assert.equal(tap(ripples, 1, zero, ripples.elapsed, {reducedMotion: true}), false);
-  assert.equal(ripples.waves.length, 0);
-  tap(ripples); advanceRipples(ripples, 1);
+  assert.equal(tap(ripples, 1, zero, ripples.elapsed, {reducedMotion: true}), true);
+  advanceRipples(ripples,.08,{reducedMotion:true});assert.deepEqual(deformRipplePoint(ripples,1,local),local);assert.ok(pulseIntensity(ripples,1,local)>0);assert.equal(hasRipple(ripples,1),false);
+  advanceRipples(ripples,.2,{reducedMotion:true});assert.equal(ripples.waves.length,0);
+  tap(ripples); advanceRipples(ripples, .1);
   assert.equal(advanceRipples(ripples, 0, {reducedMotion: true}), true);
   assert.deepEqual(deformRipplePoint(ripples, 1, local), local);
   assert.equal(ripples.waves.length, 0);
 });
 
 test('deformation always uses this frame coordinates, never an old captured shape or pose', () => {
-  const ripples = createRippleState(); tap(ripples); advanceRipples(ripples, 2);
+  const ripples = createRippleState(); tap(ripples); advanceRipples(ripples, .16);
   const newerPoint = [.08, -.06, .02], newerDeformed = deformRipplePoint(ripples, 1, newerPoint);
   assert.notDeepEqual(newerDeformed, newerPoint);
   assert.deepEqual(deformRipplePoint(ripples, 1, newerPoint), newerDeformed);
@@ -122,8 +172,8 @@ test('deformation always uses this frame coordinates, never an old captured shap
 test('clock is frame-rate independent, origins are copied, and malformed targets cannot poison it', () => {
   const a = createRippleState(), b = createRippleState();
   tap(a, 1, zero, 12); tap(b, 1, zero, 12);
-  advanceRipples(a, 2);
-  for (let i = 0; i < 20; i++) advanceRipples(b, .1);
+  advanceRipples(a, .2);
+  for (let i = 0; i < 20; i++) advanceRipples(b, .01);
   const p = [.4, 0, 0];
   assert.ok(displacement(deformRipplePoint(a, 1, p), deformRipplePoint(b, 1, p)) < 1e-10);
   const before = JSON.stringify(a);

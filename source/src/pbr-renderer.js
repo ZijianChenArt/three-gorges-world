@@ -13,14 +13,21 @@ import {RippleMesh} from './ripple-mesh.js';
 export const MAX_GPU_INSTANCES=32;
 export function effectiveStage(frame){return Math.min(6,frame.stage+(frame.committed?1:0));}
 export function makePhysicalMaterials({phone=false}={}){
-  return[
-    new THREE.MeshPhysicalMaterial({color:0xc5c8c7,metalness:1,roughness:.21,clearcoat:.25,clearcoatRoughness:.2,envMapIntensity:1.2,side:THREE.DoubleSide}),
-    new THREE.MeshStandardMaterial({color:0x444744,metalness:0,roughness:.86,envMapIntensity:.7,side:THREE.DoubleSide}),
-    new THREE.MeshPhysicalMaterial({color:0xe7eeeb,metalness:0,roughness:phone?.18:.095,transmission:phone?.72:.96,thickness:.42,ior:1.46,attenuationColor:0xcbd3ce,attenuationDistance:3,envMapIntensity:1.1,side:THREE.DoubleSide}),
-    new THREE.MeshPhysicalMaterial({color:0xa4a7a4,metalness:.72,roughness:.38,clearcoat:.1,envMapIntensity:1,side:THREE.DoubleSide}),
+  // Order follows MATERIAL_KINDS. No textures or synthetic anisotropy are used.
+  // Transmission remains real physical transmission on phones, at lower cost.
+  const definitions=[
+    {color:0xc6c9cc,metalness:1,roughness:.14,clearcoat:.22,clearcoatRoughness:.16,envMapIntensity:1.2},
+    {color:0x737673,metalness:.92,roughness:.84,clearcoat:0,envMapIntensity:.85},
+    {color:0xf0f5f2,metalness:0,roughness:phone?.16:.065,transmission:phone?.72:.98,thickness:.38,ior:1.5,attenuationColor:0xdce7df,attenuationDistance:5,envMapIntensity:1.1},
+    {color:0xb0b3b4,metalness:1,roughness:.44,clearcoat:.04,clearcoatRoughness:.4,envMapIntensity:1},
+    {color:0x646e73,metalness:0,roughness:phone?.23:.19,transmission:phone?.63:.84,thickness:.56,ior:1.52,attenuationColor:0x3e474a,attenuationDistance:1.9,envMapIntensity:1.05},
+    {color:0x44627e,metalness:.18,roughness:.24,clearcoat:.82,clearcoatRoughness:.13,ior:1.48,envMapIntensity:1},
+    {color:0x926b59,metalness:0,roughness:.68,clearcoat:.16,clearcoatRoughness:.4,ior:1.47,envMapIntensity:.85},
+    {color:0xc59a54,metalness:0,roughness:phone?.18:.11,transmission:phone?.66:.88,thickness:.44,ior:1.49,attenuationColor:0xb36c26,attenuationDistance:2.2,envMapIntensity:1.1},
   ];
+  return definitions.map(properties=>new THREE.MeshPhysicalMaterial({...properties,side:THREE.DoubleSide}));
 }
-export function matrixForPose(pose){const m=new THREE.Matrix4().makeRotationX(pose.lean);m.multiply(new THREE.Matrix4().makeRotationY(-pose.angle));m.scale(new THREE.Vector3(pose.scale,pose.scale,pose.scale));m.setPosition(...pose.position);return m;}
+export function matrixForPose(pose){const m=new THREE.Matrix4().makeRotationZ(pose.roll||0);m.multiply(new THREE.Matrix4().makeRotationX(pose.lean));m.multiply(new THREE.Matrix4().makeRotationY(-pose.angle));m.scale(new THREE.Vector3(pose.scale,pose.scale,pose.scale));m.setPosition(...pose.position);return m;}
 export function inspectionCamera(width,height,camera){const s=projectionParameters(width,height,getView(width,height),camera);return{...s,target:new THREE.Vector3(...s.target),eye:new THREE.Vector3(...s.eye),up:new THREE.Vector3(...s.up)};}
 export function webgl2Available(){try{const probe=document.createElement('canvas'),gl=probe.getContext('webgl2',{failIfMajorPerformanceCaveat:true});if(!gl)return false;gl.getExtension('WEBGL_lose_context')?.loseContext();return true;}catch{return false;}}
 
@@ -33,9 +40,9 @@ export class PbrArchive{
   }
   constructor(engine,solidCanvas,overlayCanvas,groups,faces,onFailure){
     this.engine=engine;this.solidCanvas=solidCanvas;this.overlay=new ArchivePrint(overlayCanvas,groups,faces,{overlayOnly:true});this.ctx=this.overlay.ctx;this.frames=[];this.sources=[];this.buckets=new Map();this.camera={yaw:0,pitch:0,zoom:1,panX:0,panY:0};this.backend='webgl-pbr';this.phone=innerWidth<650;this.materials=makePhysicalMaterials({phone:this.phone});this.layerMaterials=new Map();this.scene=new THREE.Scene();this.strokes=new StrokeRenderer(this.scene,{phone:this.phone});this.scene.background=new THREE.Color(0xf5f3ec);this.viewCamera=new THREE.PerspectiveCamera(45,1,.8,180);
-    engine.outputColorSpace=THREE.SRGBColorSpace;engine.toneMapping=THREE.ACESFilmicToneMapping;engine.toneMappingExposure=1.05;engine.shadowMap.enabled=true;engine.shadowMap.type=THREE.PCFSoftShadowMap;engine.setClearColor(0xf5f3ec,1);engine.transmissionResolutionScale=this.phone?.4:.65;
+    engine.outputColorSpace=THREE.SRGBColorSpace;engine.toneMapping=THREE.ACESFilmicToneMapping;engine.toneMappingExposure=1.05;engine.shadowMap.enabled=false;engine.setClearColor(0xf5f3ec,1);engine.transmissionResolutionScale=this.phone?.4:.65;
     const environment=new RoomEnvironment(),pmrem=new THREE.PMREMGenerator(engine);this.envTarget=pmrem.fromScene(environment,.025);this.scene.environment=this.envTarget.texture;this.scene.environmentIntensity=1;environment.dispose();pmrem.dispose();
-    const key=new THREE.DirectionalLight(0xffffff,2.4);key.position.set(-8,16,10);key.castShadow=true;key.shadow.mapSize.set(this.phone?1024:2048,this.phone?1024:2048);key.shadow.camera.left=-18;key.shadow.camera.right=18;key.shadow.camera.top=18;key.shadow.camera.bottom=-18;key.shadow.camera.near=.5;key.shadow.camera.far=55;key.shadow.normalBias=.035;key.shadow.bias=-.00012;key.shadow.radius=3;this.scene.add(key);this.key=key;
+    const key=new THREE.DirectionalLight(0xffffff,2.4);key.position.set(-8,16,10);key.castShadow=false;this.scene.add(key);this.key=key;
     const fill=new THREE.DirectionalLight(0xffffff,.6);fill.position.set(10,5,-8);this.scene.add(fill);this.scene.add(new THREE.HemisphereLight(0xffffff,0x7e807a,.5));
     this.floor=createReflectionGround({phone:this.phone});this.scene.add(this.floor);this.rippleMeshes=new Map();
     const failOnce=reason=>{if(this.failed)return;this.failed=true;queueMicrotask(()=>onFailure(reason));};
@@ -53,9 +60,9 @@ export class PbrArchive{
     for(const frame of this.frames){const source=this.sources[frame.instance.modelIndex],stage=effectiveStage(frame);if(!source||stage>=6||frame.edgeCount===0)continue;const patches=prepareSurfacePatches(source);let response=null;if(hasRipple(state.ripples,frame.serial)){activeRipples.add(frame.serial);response=this.rippleMeshes.get(frame.serial);if(!response){const geometry=new RippleMesh(source,frame.serial);response={geometry,meshes:geometry.geometries.map(g=>{const mesh=new THREE.Mesh(g,this.materials[frame.instance.materialIndex]);mesh.matrixAutoUpdate=false;mesh.frustumCulled=false;this.scene.add(mesh);return mesh;})};this.rippleMeshes.set(frame.serial,response);}response.geometry.update(frame,state.ripples);for(const mesh of response.meshes)mesh.visible=false;}
       for(let patch=0;patch<3;patch++){const phase=phaseInfo(frame.instance.key,patch,state.elapsed,{reducedMotion:state.reducedMotion}),level=Math.round(phase.surfaceAlpha*12);if(level===0)continue;const geometry=response?response.geometry.geometries[patch]:patches[stage][patch];if(!geometry.userData.triangleCount)continue;
         const materialKey=`${frame.instance.materialIndex}/${level}`;let material=this.layerMaterials.get(materialKey);if(!material){material=this.materials[frame.instance.materialIndex].clone();material.opacity=level/12;material.transparent=level<12;material.depthWrite=level>=9;material.polygonOffset=true;material.polygonOffsetFactor=1;material.polygonOffsetUnits=1;this.layerMaterials.set(materialKey,material);}
-        if(response){const mesh=response.meshes[patch];mesh.material=material;mesh.visible=true;mesh.castShadow=level>=9;mesh.receiveShadow=true;mesh.matrix.copy(matrixForPose(this.overlay.poses.get(frame.serial)));mesh.matrixWorldNeedsUpdate=true;visibleInstances.add(frame.serial);triangles+=geometry.userData.triangleCount;continue;}
+        if(response){const mesh=response.meshes[patch];mesh.material=material;mesh.visible=true;mesh.castShadow=false;mesh.receiveShadow=false;mesh.matrix.copy(matrixForPose(this.overlay.poses.get(frame.serial)));mesh.matrixWorldNeedsUpdate=true;visibleInstances.add(frame.serial);triangles+=geometry.userData.triangleCount;continue;}
         const key=`${frame.instance.modelIndex}/${stage}/${frame.instance.materialIndex}/${patch}/${level}`;let bucket=this.buckets.get(key);
-        if(!bucket){const dummy=new THREE.Mesh(geometry,material),mesh=new THREE.InstancedMesh(geometry,material,MAX_GPU_INSTANCES);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;mesh.castShadow=level>=9;mesh.receiveShadow=true;mesh.setMorphAt(0,dummy);mesh.count=0;this.scene.add(mesh);bucket={mesh,dummy,pending:0};this.buckets.set(key,bucket);}
+        if(!bucket){const dummy=new THREE.Mesh(geometry,material),mesh=new THREE.InstancedMesh(geometry,material,MAX_GPU_INSTANCES);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;mesh.castShadow=false;mesh.receiveShadow=false;mesh.setMorphAt(0,dummy);mesh.count=0;this.scene.add(mesh);bucket={mesh,dummy,pending:0};this.buckets.set(key,bucket);}
         bucket.dummy.morphTargetInfluences[0]=frame.committed?0:frame.blend;
         const index=bucket.pending++;bucket.mesh.setMatrixAt(index,matrixForPose(this.overlay.poses.get(frame.serial)||instancePose(frame.instance,this.width<650)));bucket.mesh.setMorphAt(index,bucket.dummy);used.add(key);visibleInstances.add(frame.serial);triangles+=geometry.userData.triangleCount;
       }
@@ -74,6 +81,6 @@ export class PbrArchive{
     }
     return fieldHit&&(!closest||fieldHit.depth>=closest.depth)?fieldHit:closest;
   }
-  centralTarget(){return this.overlay.centralTarget();}
+  centralTarget(){const target=this.overlay.centralTarget();if(!target)return null;const hit=this.pick(target.center[0],target.center[1]);return hit?{...hit,center:target.center}:null;}
   dispose(){this.solidCanvas.removeEventListener('webglcontextlost',this.onLost);for(const b of this.buckets.values())b.mesh.dispose();for(const m of this.materials)m.dispose();for(const m of this.layerMaterials.values())m.dispose();this.strokes.dispose();for(const response of this.rippleMeshes.values()){for(const mesh of response.meshes)this.scene.remove(mesh);response.geometry.dispose();}for(const source of this.sources)for(const stage of prepareSurfacePatches(source))for(const geometry of stage)geometry.dispose();for(const s of this.sources)for(const g of s.stageGeometries)g.dispose();this.envTarget?.dispose();this.floor.geometry.dispose();this.floor.dispose();this.engine.dispose();}
 }

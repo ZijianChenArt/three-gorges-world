@@ -1,21 +1,25 @@
 import {prepareArchive,instanceFrame,summary,triangleArea,random,archiveBundles} from './archive.js';
-import {shadeFacet,hatchTriangle} from './materials.js';
+import {shadeFacet,hatchTriangle,MATERIAL_KINDS} from './materials.js';
 import {automaticCamera,project,createProjector} from './flight-camera.js';
 import {deformRipplePoint,hasRipple} from './ripple.js';
 import {pickProjected} from './picking.js';
+import {chromaticFringes} from './chromatic-pulse.js';
 import {sampleEdgeField} from './edge-field.js';
 import {patchIndex,phaseInfo} from './surface-patches.js';
 export {automaticCamera,project};
 const BOX_EDGES=[[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]];
-export const MATERIAL_KINDS=['metal','matte','translucent','cut'];
-export function instancePose(instance,phone=false){
+export {MATERIAL_KINDS};
+export function instancePose(instance,phone=false,{elapsed=0,reducedMotion=false}={}){
   const k=instance.key,s=instance.serial,angle=random(k,8)*Math.PI*2,r=2.6+random(k,9)*7;
   let position=[Math.cos(angle)*r,(random(k,10)-.5)*6.4,Math.sin(angle)*r],scale=1.3+random(k,11)*1.55;
   if(s===1){position=[-3.4,.4,4];scale=4.25;}else if(s===2){position=[3.8,1,-4];scale=2.65;}else if(s===3){position=[5.1,-1.9,3];scale=2.25;}
   if(phone){position=[position[0]*.51,position[1]*1.5+(Math.sin(angle)*1.7),position[2]*.83];scale*=s===1?.91:.82;}
-  return{position,scale,angle:(random(k,12)-.5)*Math.PI*1.7,lean:(random(k,13)-.5)*.5};
+  const age=reducedMotion?0:Math.max(0,elapsed-(instance.poseStarted??instance.started??0)),t=age-5*(1-Math.exp(-age/5)),phase=random(k,31)*Math.PI*2;
+  const drift=(axis,rate,amount)=>amount*(Math.sin(t*rate+phase+axis)-Math.sin(phase+axis));
+  position=position.map((v,axis)=>v+drift(axis,.024+random(k,32+axis)*.022,(phone?.14:.2)));
+  return{position,scale,angle:(random(k,12)-.5)*Math.PI*1.7+(random(k,35)>.5?1:-1)*(.002+random(k,36)*.003)*t,lean:(random(k,13)-.5)*.5+drift(1,.031,.038),roll:drift(2,.027,.035)};
 }
-export function transformPoint(p,pose){const ca=Math.cos(pose.angle),sa=Math.sin(pose.angle),cl=Math.cos(pose.lean),sl=Math.sin(pose.lean),x=p[0]*ca-p[2]*sa,z=p[0]*sa+p[2]*ca,y=p[1]*cl-z*sl,zz=p[1]*sl+z*cl;return[x,y,zz].map((v,i)=>v*pose.scale+pose.position[i]);}
+export function transformPoint(p,pose){const ca=Math.cos(pose.angle),sa=Math.sin(pose.angle),cl=Math.cos(pose.lean),sl=Math.sin(pose.lean),x=p[0]*ca-p[2]*sa,z=p[0]*sa+p[2]*ca,y=p[1]*cl-z*sl,zz=p[1]*sl+z*cl;const cr=Math.cos(pose.roll||0),sr=Math.sin(pose.roll||0);return[x*cr-y*sr,x*sr+y*cr,zz].map((v,i)=>v*pose.scale+pose.position[i]);}
 export function getView(w,h){const phone=w<650,top=phone?36:31,bottom=h-53,available=Math.max(120,bottom-top),scale=Math.min(w/(phone?14.7:25),available/(phone?17.8:16.2));return{scale,cx:w*(phone?.48:.515),cy:top+available*.5,top,bottom};}
 export function placeLabelY(x,y,width,existing,min,max){for(let n=0;n<30;n++){const candidate=y+(n===0?0:(n%2?1:-1)*Math.ceil(n/2)*24);if(candidate<min||candidate>max)continue;if(!existing.some(p=>Math.abs(candidate-p.y)<23&&x<p.x+width&&x+width>p.x))return candidate;}return null;}
 function box(bounds){return Array.from({length:8},(_,i)=>[(i&1?1:-1)*bounds[0],(i&2?1:-1)*bounds[1],(i&4?1:-1)*bounds[2]]);}
@@ -30,13 +34,14 @@ export class ArchivePrint{
     const projectFrame=createProjector(this.camera);
     const pos=p=>{const q=projectFrame(p),screen=[v.cx+q[0]*v.scale,v.cy+q[1]*v.scale,q[2]];screen.visible=q.visible!==false;screen.cameraDepth=q.cameraDepth;screen.multiplier=q.multiplier;return screen;};
     const line=(a,b)=>{if(a.visible===false||b.visible===false)return;c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);};
-    const prepared=frames.map(f=>{const pose=instancePose(f.instance,phone),vertices=hasRipple(state.ripples,f.serial)?f.vertices.map(p=>deformRipplePoint(state.ripples,f.serial,p)):f.vertices,world=this.overlayOnly?[]:vertices.map(p=>transformPoint(p,pose)),points=world.map(pos),corners=box(f.model.bounds).map(p=>pos(transformPoint(p,pose)));return{...f,baseVertices:f.vertices,vertices,pose,world,points,corners,center:pos(pose.position),material:MATERIAL_KINDS[f.instance.materialIndex]};});this.poses=new Map(prepared.map(f=>[f.serial,f.pose]));
+    const prepared=frames.map(f=>{const pose=instancePose(f.instance,phone,{elapsed:state.poseTime??(state.reducedMotion?0:state.elapsed)}),vertices=hasRipple(state.ripples,f.serial)?f.vertices.map(p=>deformRipplePoint(state.ripples,f.serial,p)):f.vertices,world=this.overlayOnly?[]:vertices.map(p=>transformPoint(p,pose)),points=world.map(pos),corners=box(f.model.bounds).map(p=>pos(transformPoint(p,pose)));return{...f,baseVertices:f.vertices,vertices,pose,world,points,corners,center:pos(pose.position),material:MATERIAL_KINDS[f.instance.materialIndex]};});this.poses=new Map(prepared.map(f=>[f.serial,f.pose]));
 
-    const alive=prepared.filter(f=>f.edgeCount>0).length,edgeBudget=Math.max(1,Math.floor((phone?540:1200)/Math.max(1,alive))),pointBudget=Math.max(1,Math.floor((phone?260:580)/Math.max(1,alive)));
-    this.fields=prepared.map(f=>{const field=sampleEdgeField({...f,vertices:f.baseVertices},{elapsed:state.elapsed,reducedMotion:state.reducedMotion,edgeBudget,segments:phone?4:6,pointBudget});return{serial:f.serial,...field,curves:field.curves.map(curve=>{const local=curve.points.map(p=>deformRipplePoint(state.ripples,f.serial,p));return{...curve,local,points:local.map(p=>transformPoint(p,f.pose))};}),points:field.points.map(point=>{const local=deformRipplePoint(state.ripples,f.serial,point.position);return{...point,local,position:transformPoint(local,f.pose)};})};});
-    this.pickItems=this.fields.map(field=>({serial:field.serial,triangles:[],curves:field.curves.map(curve=>({screen:curve.points.map(pos),local:curve.local,world:curve.points,alpha:curve.alpha})),points:field.points.map(point=>({screen:pos(point.position),local:point.local,world:point.position,alpha:point.alpha}))}));this.pickTargets=this.pickItems;
+    const alive=prepared.filter(f=>f.edgeCount>0).length,edgeBudget=Math.max(1,Math.floor((phone?540:1200)/Math.max(1,alive)));
+    this.fields=prepared.map(f=>{const field=sampleEdgeField({...f,vertices:f.baseVertices},{elapsed:state.elapsed,reducedMotion:state.reducedMotion,edgeBudget,segments:phone?4:6});return{serial:f.serial,...field,curves:field.curves.map(curve=>{const local=curve.points.map(p=>deformRipplePoint(state.ripples,f.serial,p));return{...curve,local,restLocal:curve.points,points:local.map(p=>transformPoint(p,f.pose))};}),points:[]};});
+    for(const field of this.fields){const pose=this.poses.get(field.serial),fringes=chromaticFringes(field.curves,state.ripples,field.serial,p=>transformPoint(p,pose));field.curves.push(...fringes);field.renderedSegments+=fringes.length;}
+    this.pickItems=this.fields.map(field=>({serial:field.serial,triangles:[],curves:field.curves.map(curve=>({screen:curve.points.map(pos),local:curve.local,world:curve.points,alpha:curve.alpha})),points:[]}));this.pickTargets=this.pickItems;
 
-    this.renderedSegments=this.fields.reduce((n,f)=>n+f.renderedSegments,0);this.renderedPoints=this.fields.reduce((n,f)=>n+f.renderedPoints,0);
+    this.renderedSegments=this.fields.reduce((n,f)=>n+f.renderedSegments,0);this.renderedPoints=0;
     c.save();c.beginPath();c.rect(0,v.top-30,w,v.bottom-v.top+55);c.clip();
     // Bounded proxy bundles retain exact closed-record ranges and counts, never hidden live meshes.
     const bundles=archiveBundles(state,phone?28:64);this.bundleCount=bundles.length;this.bundleRecords=bundles.reduce((n,b)=>n+b.count,0);
@@ -60,17 +65,17 @@ export class ArchivePrint{
     // A short exact-source opening keeps the original outline readable before it peels.
     for(const f of(this.overlayOnly?[]:prepared)){const opening=state.reducedMotion?.3:Math.max(0,1-f.time/4.5)*.35;if(opening<=0)continue;c.strokeStyle='#22221f';c.lineWidth=.55;c.globalAlpha=opening;c.beginPath();for(const[a,b]of f.activeEdges)line(f.points[a],f.points[b]);c.stroke();this.renderedSegments+=f.activeEdges.length;}c.globalAlpha=1;
     for(const field of(this.overlayOnly?[]:this.fields)){
-      c.strokeStyle='#20221f';c.lineWidth=phone?.82:.9;for(const curve of field.curves){c.globalAlpha=.12+.78*curve.alpha;c.beginPath();const p=curve.points.map(pos);for(let i=1;i<p.length;i++)line(p[i-1],p[i]);c.stroke();}
-      c.fillStyle='#242522';for(const point of field.points){const p=pos(point.position);if(!p.visible)continue;c.globalAlpha=.6+.4*point.alpha;const radius=phone?2.5:2.15;c.beginPath();c.arc(p[0],p[1],radius,0,Math.PI*2);c.fill();}c.globalAlpha=1;
+      c.strokeStyle='#20221f';c.lineWidth=phone?.82:.9;for(const curve of field.curves){c.strokeStyle=curve.color?'rgb('+curve.color.map(v=>Math.round(v*255)).join(',')+')':'#20221f';c.globalAlpha=curve.chromatic?curve.alpha:.12+.78*curve.alpha;c.beginPath();const p=curve.points.map(pos);for(let i=1;i<p.length;i++)line(p[i-1],p[i]);c.stroke();}
+      c.globalAlpha=1;
     }
     c.restore();c.globalAlpha=1;this.labels=[];
     for(const f of prepared){const visible=f.corners.filter(p=>p.visible);if(!visible.length)continue;const p=visible.reduce((a,b)=>a[1]<b[1]?a:b),x=Math.max(18,Math.min(w-(phone?111:151),p[0]+9)),initialY=Math.max(v.top-20,Math.min(v.bottom-5,p[1]-10)),y=placeLabelY(x,initialY,phone?110:146,this.labels,v.top-20,v.bottom-5);if(y===null)continue;
-      c.strokeStyle='#1b1b17';c.lineWidth=.6;c.beginPath();line(p,[x,y+3]);line([x-3,y],[x+3,y]);c.stroke();c.fillStyle='#f5f3ec';c.fillRect(x+5,y-12,phone?105:143,phone?20:24);c.fillStyle='#191916';c.font=`${phone?10:10.5}px 'Courier New',monospace`;c.fillText(`A—${String(f.serial).padStart(3,'0')} / ${f.edgeCount}`,x+8,y);if(!phone){c.font="7px 'Courier New',monospace";c.fillStyle='#65635c';const field=this.fields.find(item=>item.serial===f.serial);c.fillText(`p=${field?.renderedPoints||0} l=${field?.renderedSegments||0}`,x+8,y+10);}this.labels.push({x,y,id:f.model.id,serial:f.serial});
+      c.strokeStyle='#1b1b17';c.lineWidth=.6;c.beginPath();line(p,[x,y+3]);line([x-3,y],[x+3,y]);c.stroke();c.fillStyle='#f5f3ec';c.fillRect(x+5,y-12,phone?105:143,phone?20:24);c.fillStyle='#191916';c.font=`${phone?10:10.5}px 'Courier New',monospace`;c.fillText(`A—${String(f.serial).padStart(3,'0')} / ${f.edgeCount}`,x+8,y);if(!phone){c.font="7px 'Courier New',monospace";c.fillStyle='#65635c';const field=this.fields.find(item=>item.serial===f.serial);c.fillText(`l=${field?.renderedSegments||0}`,x+8,y+10);}this.labels.push({x,y,id:f.model.id,serial:f.serial});
     }
 
     c.strokeStyle='#1b1b17';c.lineWidth=.7;for(const[x,y]of[[17,v.top-25],[w-17,v.top-25],[17,v.bottom+18],[w-17,v.bottom+18]]){c.beginPath();line([x-4,y],[x+4,y]);line([x,y-4],[x,y+4]);c.stroke();}
   }
   pick(x,y){if(x<0||x>this.width||y<this.view.top-30||y>this.view.bottom+25)return null;return pickProjected(x,y,this.pickItems||[],{lineTolerance:this.width<650?9:6,pointTolerance:this.width<650?11:8});}
-  centralTarget(){const candidates=(this.pickItems||[]).flatMap(item=>item.points.map(point=>({serial:item.serial,...point}))).filter(p=>p.screen.visible&&p.screen[0]>=0&&p.screen[0]<=this.width&&p.screen[1]>=this.view.top&&p.screen[1]<=this.view.bottom);candidates.sort((a,b)=>Math.hypot(a.screen[0]-this.width/2,a.screen[1]-this.height/2)-Math.hypot(b.screen[0]-this.width/2,b.screen[1]-this.height/2));const p=candidates[0];return p?{serial:p.serial,local:p.local,world:p.world,center:p.screen}:null;}
+  centralTarget(){const candidates=(this.pickItems||[]).flatMap(item=>item.curves.flatMap(curve=>curve.screen.map((screen,i)=>({serial:item.serial,screen,local:curve.local[i],world:curve.world?.[i]})))).filter(p=>p.screen.visible!==false&&p.screen[0]>=0&&p.screen[0]<=this.width&&p.screen[1]>=this.view.top&&p.screen[1]<=this.view.bottom);candidates.sort((a,b)=>Math.hypot(a.screen[0]-this.width/2,a.screen[1]-this.height/2)-Math.hypot(b.screen[0]-this.width/2,b.screen[1]-this.height/2));const p=candidates[0];if(!p)return null;const hit=this.pick(p.screen[0],p.screen[1]);return hit?{...hit,center:p.screen}:null;}
 
 }

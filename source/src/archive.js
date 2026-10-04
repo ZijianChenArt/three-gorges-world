@@ -1,3 +1,4 @@
+import {materialIndexFor} from './materials.js';
 /** A fictional retention procedure. Counts always come from actual surviving edges. */
 export const STEPS=[.065,.13,.26,.52,1.04,2.4];
 export function hash(n){n=Math.imul(n^(n>>>16),0x21f0aaad);n=Math.imul(n^(n>>>15),0x735a2d97);return(n^(n>>>15))>>>0;}
@@ -20,7 +21,7 @@ export function prepareArchive(groups,faceGroups=[]){return groups.map((g,index)
 });}
 export function makeInstance(serial,started,seed=271828){
   const key=hash(seed^Math.imul(serial,0x85ebca6b)),intro=5+random(key,1)*5,stepTime=4+random(key,2)*3,emptyHold=8+random(key,3)*10;
-  return{serial,started,key,modelIndex:serial<=5?serial-1:Math.floor(random(key,4)*5),materialIndex:serial<=4?serial-1:Math.floor(random(key,5)*4),intro,stepTime,emptyHold,end:started+intro+STEPS.length*stepTime+emptyHold};
+  return{serial,started,key,modelIndex:serial<=5?serial-1:Math.floor(random(key,4)*5),materialIndex:materialIndexFor(hash(key^0x49d0a49b),serial),intro,stepTime,emptyHold,end:started+intro+STEPS.length*stepTime+emptyHold};
 }
 export function desiredDensity(elapsed,seed,budget){
   // The detailed foreground grows; older records accumulate separately in bounded bundles.

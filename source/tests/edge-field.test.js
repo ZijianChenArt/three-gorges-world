@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {prepareArchive, makeInstance, instanceFrame} from '../src/archive.js';
-import {sampleEdgeField, MAX_FIELD_EDGES, MAX_FIELD_SEGMENTS, MAX_FIELD_POINTS} from '../src/edge-field.js';
+import {sampleEdgeField, MAX_FIELD_EDGES, MAX_FIELD_SEGMENTS} from '../src/edge-field.js';
 import {patchIndex} from '../src/surface-patches.js';
 
 const groups = JSON.parse(readFileSync(new URL('../public/models/sculpture-wireframes.json', import.meta.url))).groups;
@@ -23,7 +23,7 @@ const groupCurves = curves => {
   return groups;
 };
 
-test('curves and points come only from actual surviving source edges, with honest logical counts', () => {
+test('curves come only from actual surviving source edges, with no point layer and honest logical counts', () => {
   for (let model = 0; model < models.length; model++) {
     for (const elapsed of [0, 12, 23, 35, 48]) {
       const frame = makeFrame(model, elapsed);
@@ -32,9 +32,9 @@ test('curves and points come only from actual surviving source edges, with hones
       const active = new Set(frame.activeEdges.map(edgeKey));
       assert.equal(sampled.logicalEdges, frame.edgeCount);
       assert.ok(sampled.curves.every(curve => active.has(edgeKey(curve.edge))));
-      assert.ok(sampled.points.every(point => active.has(edgeKey(point.edge))));
+      assert.deepEqual(sampled.points, []);
       assert.deepEqual(frame.activeEdges, before);
-      assert.equal(sampled.renderedPoints, sampled.points.length);
+      assert.equal(sampled.renderedPoints, 0);
       assert.equal(sampled.renderedSegments, sampled.curves.reduce((sum, c) => sum + c.points.length - 1, 0));
     }
   }
@@ -97,7 +97,8 @@ test('selection is deterministic and independent of time, with healthy first-fiv
   assert.deepEqual(first.curves.map(c => c.edge), later.curves.map(c => c.edge));
   assert.notDeepEqual(first.curves.map(c => c.points), later.curves.map(c => c.points));
   assert.ok(first.curves.some((c, i) => Math.abs(c.alpha - later.curves[i].alpha) > .08));
-  assert.ok(first.points.some((p, i) => Math.abs(p.alpha - later.points[i].alpha) > .08));
+  assert.deepEqual(first.points, []);
+  assert.deepEqual(later.points, []);
 });
 
 test('fixed elapsed freezes all changes and reduced motion is static for arbitrarily later elapsed', () => {
@@ -105,7 +106,8 @@ test('fixed elapsed freezes all changes and reduced motion is static for arbitra
   assert.deepEqual(sampleEdgeField(frame, {elapsed: 2}), sampleEdgeField(frame, {elapsed: 2}));
   const still = sampleEdgeField(frame, {elapsed: 0, reducedMotion: true});
   assert.deepEqual(still, sampleEdgeField(frame, {elapsed: 10000, reducedMotion: true}));
-  assert.ok(still.curves.length > 0 && still.points.length > 0);
+  assert.ok(still.curves.length > 0);
+  assert.deepEqual(still.points, []);
 });
 
 test('local continuous alpha envelopes differ spatially without abrupt high-contrast flashes', () => {
@@ -118,10 +120,7 @@ test('local continuous alpha envelopes differ spatially without abrupt high-cont
       assert.ok(next.curves[i].alpha >= 0 && next.curves[i].alpha <= 1);
       assert.ok(Math.abs(next.curves[i].alpha - previous.curves[i].alpha) < .03);
     }
-    for (let i = 0; i < next.points.length; i++) {
-      assert.ok(next.points[i].alpha >= 0 && next.points[i].alpha <= 1);
-      assert.ok(Math.abs(next.points[i].alpha - previous.points[i].alpha) < .03);
-    }
+    assert.deepEqual(next.points, []);
     previous = next;
   }
 });
@@ -147,11 +146,13 @@ test('work and output remain bounded without scanning unselected edges', () => {
   assert.equal(reads, 17);
   assert.ok(limited.curves.length <= 34);
   assert.ok(limited.renderedSegments <= 51);
-  assert.equal(limited.renderedPoints, 13);
+  assert.equal(limited.renderedPoints, 0);
+  assert.deepEqual(limited.points, []);
   const huge = sampleEdgeField(frame, {edgeBudget: 1e9, segments: 1e9, pointBudget: 1e9});
   assert.ok(huge.curves.length <= MAX_FIELD_EDGES * 2);
   assert.ok(huge.renderedSegments <= MAX_FIELD_EDGES * MAX_FIELD_SEGMENTS);
-  assert.ok(huge.renderedPoints <= MAX_FIELD_POINTS);
+  assert.equal(huge.renderedPoints, 0);
+  assert.deepEqual(huge.points, []);
   assert.equal(sampleEdgeField(frame, {edgeBudget: 0}).renderedSegments, 0);
   assert.equal(sampleEdgeField(frame, {pointBudget: 0}).renderedPoints, 0);
 });
@@ -179,7 +180,24 @@ test('all finite coordinates remain local to the surviving source forms', () => 
           assert.ok(distance(point, frame.vertices[a]) <= length * 1.5);
         }
       }
-      for (const point of sampled.points) assert.ok(point.position.every(Number.isFinite));
+      assert.deepEqual(sampled.points, []);
+    }
+  }
+});
+
+
+test('legacy point budgets cannot produce a point layer at any phase or quality', () => {
+  const frame = makeFrame(1);
+  const baseline = sampleEdgeField(frame, {elapsed: 2});
+  for (const pointBudget of [0, 1, 128, 1e9, Infinity, NaN]) {
+    assert.deepEqual(sampleEdgeField(frame, {elapsed: 2, pointBudget}), baseline);
+  }
+  for (const reducedMotion of [false, true]) {
+    for (const elapsed of [0, .2, 1, 2.4, 4.8, 10, 50]) {
+      const field = sampleEdgeField(frame, {elapsed, reducedMotion, pointBudget: 1e9});
+      assert.deepEqual(field.points, []);
+      assert.equal(field.renderedPoints, 0);
+      assert.ok(field.renderedSegments > 0);
     }
   }
 });

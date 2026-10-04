@@ -4,10 +4,13 @@
  * pose, the archive clock, survivor topology, or any shared source geometry.
  */
 export const MAX_RIPPLES = 2;
-export const RIPPLE_DURATION = 4.8;
+export const RIPPLE_DURATION = .82;
+const REDUCED_PULSE_DURATION=.22;
 export const MAX_RIPPLE_DISPLACEMENT = .48;
-const FRONT_DELAY = 1.35;
-const FRONT_DISTANCE = .9;
+const FRONT_DELAY = .5;
+const FRONT_DISTANCE = 1.5;
+const FRONT_ATTACK = .028;
+const FRONT_DECAY = RIPPLE_DURATION - FRONT_DELAY - FRONT_ATTACK;
 const ORIGIN_SOFTNESS = .22;
 
 export function createRippleState() {
@@ -28,16 +31,16 @@ function validSerial(serial) {
 function liveWave(ripples, serial) {
   if (!validSerial(serial)) return undefined;
   return ripples?.waves?.find(wave => wave.serial === serial
-    && ripples.elapsed >= wave.started && ripples.elapsed - wave.started < RIPPLE_DURATION);
+    && ripples.elapsed >= wave.started && ripples.elapsed - wave.started < (wave.reducedMotion?REDUCED_PULSE_DURATION:RIPPLE_DURATION));
 }
 
 function retire(ripples) {
-  ripples.waves = ripples.waves.filter(wave => ripples.elapsed - wave.started < RIPPLE_DURATION);
+  ripples.waves = ripples.waves.filter(wave => ripples.elapsed - wave.started < (wave.reducedMotion?REDUCED_PULSE_DURATION:RIPPLE_DURATION));
 }
 
 /** Whether this exact instance needs its temporary local vertex buffers. */
 export function hasRipple(ripples, serial) {
-  return !!liveWave(ripples, serial);
+  const wave=liveWave(ripples, serial);return !!wave&&!wave.reducedMotion;
 }
 
 /**
@@ -49,11 +52,11 @@ export function hasRipple(ripples, serial) {
 export function emitRipple(ripples, target, nowSeconds = ripples.elapsed, {reducedMotion = false} = {}) {
   const origin = point(target?.origin);
   const serial = target?.serial;
-  if (reducedMotion || !validSerial(serial) || !origin || !Number.isFinite(nowSeconds) || nowSeconds < 0) return false;
+  if (!validSerial(serial) || !origin || !Number.isFinite(nowSeconds) || nowSeconds < 0) return false;
   ripples.elapsed = Math.max(ripples.elapsed, nowSeconds);
   retire(ripples);
-  if (hasRipple(ripples, serial) || ripples.waves.length >= MAX_RIPPLES) return false;
-  ripples.waves.push({serial, origin, started: ripples.elapsed});
+  if (liveWave(ripples, serial) || ripples.waves.length >= MAX_RIPPLES) return false;
+  ripples.waves.push({serial, origin, started: ripples.elapsed, reducedMotion});
   return true;
 }
 
@@ -68,8 +71,8 @@ export function advanceRipples(ripples, dt, {paused = false, reducedMotion = fal
   void paused;
   const active = ripples.waves.length > 0;
   if (reducedMotion) {
-    ripples.waves = [];
-    return active;
+    ripples.waves = ripples.waves.filter(wave=>wave.reducedMotion);
+    if(!Number.isFinite(dt)||dt<=0)return active;
   }
   if (!Number.isFinite(dt) || dt <= 0) return false;
   ripples.elapsed += dt;
@@ -82,8 +85,8 @@ export function advanceRipples(ripples, dt, {paused = false, reducedMotion = fal
  * Optional `out` is a reusable xyz array for bounded CPU-mesh updates. Equal
  * input coordinates always remain equal, so collapsed faces cannot reappear.
  *
- * The smooth spatial front reaches farther points later. Each point scatters
- * radially and gathers back by 4.8 seconds, with zero velocity at both joins.
+ * A sharp spatial impulse reaches farther points later. Each point scatters
+ * radially and softly rebounds within .82 seconds, at rest at both joins.
  * The softened radial vector is continuous at the clicked origin and its
  * displacement is strictly smaller than MAX_RIPPLE_DISPLACEMENT.
  */
@@ -104,15 +107,47 @@ export function createRippleDeformer(ripples, serial) {
   return (x, y, z, out) => deformAt(wave, age, x, y, z, out);
 }
 
+/** The same local front used by deformation, sampled on CURRENT geometry.
+ * Useful for transient line fringes: only the selected serial can light up.
+ * This does not retain geometry, allocate render resources, or mutate state.
+ */
+export function pulseIntensity(ripples, serial, localPoint) {
+  const wave = liveWave(ripples, serial);
+  if (!wave) return 0;
+  const x = localPoint?.[0] ?? localPoint?.x;
+  const y = localPoint?.[1] ?? localPoint?.y;
+  const z = localPoint?.[2] ?? localPoint?.z;
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return 0;
+  const distance = Math.hypot(x - wave.origin[0], y - wave.origin[1], z - wave.origin[2]);
+  const age=ripples.elapsed-wave.started;
+  if(wave.reducedMotion){const t=Math.max(0,Math.min(1,age/REDUCED_PULSE_DURATION));return .42*Math.sin(Math.PI*t)**2*Math.exp(-distance*distance/.28);}
+  return intensityAt(age, distance);
+}
+
+function smoothstep(t) {
+  return t * t * (3 - 2 * t);
+}
+
+function intensityAt(age, distance) {
+  if (age <= 0 || age >= RIPPLE_DURATION) return 0;
+  // A broad initial footprint makes an interior-face hit visible immediately;
+  // farther points still receive the single impulse at strictly later times.
+  const radius = distance / FRONT_DISTANCE;
+  const delay = FRONT_DELAY * (1 - Math.exp(-radius * radius));
+  const sinceFront = age - delay;
+  if (sinceFront <= 0 || sinceFront >= FRONT_ATTACK + FRONT_DECAY) return 0;
+  if (sinceFront < FRONT_ATTACK) return smoothstep(sinceFront / FRONT_ATTACK);
+  return 1 - smoothstep((sinceFront - FRONT_ATTACK) / FRONT_DECAY);
+}
+
 function deformAt(wave, age, x, y, z, out) {
   out[0] = x; out[1] = y; out[2] = z;
-  if (!wave || age <= 0 || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return out;
+  if (!wave || wave.reducedMotion || age <= 0 || !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) return out;
   const dx = x - wave.origin[0], dy = y - wave.origin[1], dz = z - wave.origin[2];
   const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  const delay = FRONT_DELAY * (1 - Math.exp(-distance / FRONT_DISTANCE));
-  const phase = (age - delay) / (RIPPLE_DURATION - delay);
-  if (phase <= 0 || phase >= 1 || !distance) return out;
-  const pulse = Math.sin(Math.PI * phase) ** 2;
+  if (!distance) return out;
+  const pulse = intensityAt(age, distance);
+  if (!pulse) return out;
   const strength = MAX_RIPPLE_DISPLACEMENT * pulse / (distance + ORIGIN_SOFTNESS);
   out[0] = x + dx * strength;
   out[1] = y + dy * strength;

@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {MATERIAL_KINDS, materialFor, shadeFacet, hatchTriangle} from '../src/materials.js';
+import {makeInstance} from '../src/archive.js';
+import {MATERIAL_KINDS, MATERIAL_NAMES, materialFor, materialIndexFor, shadeFacet, hatchTriangle} from '../src/materials.js';
 
 const base = {normal: [.3, .7, -.5], view: [0, .3, 1], center: [.2, -.1, .6], seed: 57};
 const triangle = [[10, 20], [210, 30], [30, 220]];
@@ -12,7 +13,7 @@ function barycentric(p, [a, b, c]) {
   return [u, v, 1 - u - v];
 }
 
-test('material intake assignment is deterministic, immutable, and covers all four appearances', () => {
+test('material intake assignment is deterministic, immutable, and covers the complete palette', () => {
   const seen = new Set();
   for (let seed = 0; seed < 200; seed++) {
     assert.deepEqual(materialFor(seed), materialFor(seed));
@@ -23,16 +24,42 @@ test('material intake assignment is deterministic, immutable, and covers all fou
   assert.deepEqual(materialFor(NaN), materialFor(0));
 });
 
-test('the four materials have distinct bounded monochrome canvas styles', () => {
+test('intake material indices are seeded, bounded, and keep color accents restrained', () => {
+  assert.deepEqual(MATERIAL_KINDS.slice(0, 4), ['metal', 'matte', 'translucent', 'cut']);
+  assert.equal(MATERIAL_KINDS.length, 8);
+  assert.ok(MATERIAL_KINDS.every(kind => MATERIAL_NAMES[kind]));
+  const initial = Array.from({length: 12}, (_, i) => makeInstance(i + 1, 0, 271828).materialIndex);
+  assert.deepEqual(initial.slice(0, 4), [0, 1, 2, 3]);
+  assert.equal(new Set(initial).size, MATERIAL_KINDS.length);
+  assert.equal(initial.filter(index => index >= 5).length, 3);
+  for (const seed of [0, 1, 271828, 999999]) {
+    const instances = Array.from({length: 2000}, (_, i) => makeInstance(i + 13, 0, seed));
+    for (const instance of instances) {
+      assert.ok(Number.isInteger(instance.materialIndex) && instance.materialIndex >= 0 && instance.materialIndex < MATERIAL_KINDS.length);
+      assert.deepEqual(instance, makeInstance(instance.serial, 0, seed));
+    }
+    const fraction = instances.filter(instance => instance.materialIndex >= 5).length / instances.length;
+    assert.ok(fraction >= .25 && fraction <= .35, `color fraction ${fraction} for seed ${seed}`);
+  }
+  assert.equal(materialIndexFor(NaN), materialIndexFor(0));
+  assert.notDeepEqual(Array.from({length: 100}, (_, i) => makeInstance(i + 13, 0, 1).materialIndex), Array.from({length: 100}, (_, i) => makeInstance(i + 13, 0, 2).materialIndex));
+});
+
+test('the eight fallback materials have distinct bounded neutral and tinted canvas styles', () => {
   const styles = MATERIAL_KINDS.map(material => shadeFacet({...base, material}));
-  assert.equal(new Set(styles.map(s => `${s.fill}/${s.alpha}/${s.edge}/${Boolean(s.hatch)}`)).size, 4);
+  assert.equal(new Set(styles.map(s => `${s.fill}/${s.alpha}/${s.edge}/${Boolean(s.hatch)}`)).size, MATERIAL_KINDS.length);
   assert.ok(styles[2].alpha < .13 && styles[1].alpha > .4);
   assert.ok(styles[3].hatch && styles[3].hatch.spacing > 0);
+  assert.ok(styles[4].alpha > styles[2].alpha);
+  const channels = color => [1, 3, 5].map(offset => parseInt(color.slice(offset, offset + 2), 16));
+  const cobalt = channels(styles[5].fill), oxide = channels(styles[6].fill), amber = channels(styles[7].fill);
+  assert.ok(cobalt[2] > cobalt[1] && cobalt[1] > cobalt[0]);
+  assert.ok(oxide[0] > oxide[1] && oxide[1] > oxide[2]);
+  assert.ok(amber[0] > amber[1] && amber[1] > amber[2]);
+  assert.equal(new Set([styles[5].fill, styles[6].fill, styles[7].fill]).size, 3);
   for (const s of styles) {
     for (const key of ['fill', 'edge', 'highlight']) {
       assert.match(s[key], /^#[0-9a-f]{6}$/);
-      assert.equal(s[key].slice(1, 3), s[key].slice(3, 5));
-      assert.equal(s[key].slice(3, 5), s[key].slice(5, 7));
     }
     for (const key of ['alpha', 'edgeAlpha', 'highlightAlpha', 'specular', 'diffuse']) assert.ok(Number.isFinite(s[key]) && s[key] >= 0 && s[key] <= 1);
     assert.ok(s.lineWidth >= .5 && s.lineWidth <= 1);

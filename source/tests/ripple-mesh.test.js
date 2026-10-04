@@ -23,7 +23,7 @@ const snapshot = source => {
 const originalHashes = sources.map(snapshot);
 const originalRefs = sources.map(source => source.stages.map((stage, index) => [stage.positions, stage.normals, source.stageGeometries[index].index]));
 const makeActive = (serial = 11, origin = [.12, -.1, .07]) => {
-  const ripples = createRippleState(); emitRipple(ripples, {serial, origin}); advanceRipples(ripples, 2.4); return ripples;
+  const ripples = createRippleState(); emitRipple(ripples, {serial, origin}); advanceRipples(ripples, .22); return ripples;
 };
 const expectedPositions = (source, stage, blend = 0) => {
   const from = source.stages[stage].positions, to = source.stages[Math.min(stage + 1, source.stages.length - 1)].positions;

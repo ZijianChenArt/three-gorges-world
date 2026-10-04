@@ -1,10 +1,14 @@
 /**
- * Monochrome print materials, deliberately stylized rather than physical PBR.
+ * Shared material palette with deliberately stylized Canvas fallback shading.
+ * Only the WebGL renderer provides physically based transmission/reflections.
  * All variation comes from instance seeds, geometry and the current view. Time
  * never drives a blink, a random sample or a texture animation.
  */
-export const MATERIAL_KINDS = Object.freeze(['metal', 'matte', 'translucent', 'cut']);
-export const MATERIAL_NAMES = Object.freeze({metal: 'POLISHED METAL', matte: 'MATTE', translucent: 'TRANSLUCENT', cut: 'SECTION / CUT'});
+export const MATERIAL_KINDS = Object.freeze(['metal', 'matte', 'translucent', 'cut', 'smoked', 'cobalt', 'oxide', 'amber']);
+export const MATERIAL_NAMES = Object.freeze({metal: 'POLISHED CHROME', matte: 'ROUGH METAL', translucent: 'CLEAR GLASS', cut: 'SATIN CUT METAL', smoked: 'SMOKED GLASS', cobalt: 'COBALT LACQUER', oxide: 'OXIDE CERAMIC', amber: 'AMBER GLASS'});
+// Eight shared materials; the first four indices are preserved for old records.
+// Three restrained color accents in twelve intakes, with every finish visible.
+const INITIAL_MATERIALS = Object.freeze([0, 1, 2, 3, 4, 5, 0, 6, 1, 7, 2, 3]);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -13,7 +17,9 @@ const vector = (v, fallback = [0, 0, 1]) => {
   const length = Math.hypot(v[0], v[1], v[2]);
   return length > 1e-12 && Number.isFinite(length) ? [v[0] / length, v[1] / length, v[2] / length] : [...fallback];
 };
-const gray = n => { const h = Math.round(clamp(finite(n, 128), 0, 255)).toString(16).padStart(2, '0'); return `#${h}${h}${h}`; };
+const rgb = values => `#${values.map(n => Math.round(clamp(finite(n, 128), 0, 255)).toString(16).padStart(2, '0')).join('')}`;
+const gray = n => rgb([n, n, n]);
+const tint = (color, light) => rgb(color.map(n => n * light));
 const hash = seed => {
   let n = finite(seed) >>> 0;
   n = Math.imul(n ^ (n >>> 16), 0x21f0aaad);
@@ -22,10 +28,17 @@ const hash = seed => {
 };
 const LIGHT = vector([.35, .83, -.42]);
 
+/** Deterministic bounded assignment: 70% neutral finishes, 30% color accents. */
+export function materialIndexFor(seed = 0, serial = 0) {
+  if (Number.isInteger(serial) && serial >= 1 && serial <= INITIAL_MATERIALS.length) return INITIAL_MATERIALS[serial - 1];
+  const value = hash(finite(seed) >>> 0), selector = value / 4294967296;
+  return selector < .7 ? Math.floor(selector / .7 * 5) : 5 + Math.min(2, Math.floor((selector - .7) / .3 * 3));
+}
+
 /** Call once per intake, not per face. No global state or Math.random is used. */
 export function materialFor(seed = 0) {
   const stableSeed = finite(seed) >>> 0;
-  const kind = MATERIAL_KINDS[hash(stableSeed) % MATERIAL_KINDS.length];
+  const kind = MATERIAL_KINDS[materialIndexFor(stableSeed)];
   return Object.freeze({kind, label: MATERIAL_NAMES[kind], seed: stableSeed});
 }
 
@@ -66,11 +79,27 @@ export function shadeFacet({material = 'matte', normal, view, center, seed, elap
     return {...style, fill: gray(43 + 99 * diffuse), alpha: .49,
       edge: '#343434', edgeAlpha: .79, lineWidth: .67};
   }
-  if (kind === 'translucent') {
-    // Overlapping ORIGINAL facets accumulate a visible smoky translucent tone.
-    return {...style, fill: '#555555', alpha: .045 + .075 * grazing,
-      edge: '#565656', edgeAlpha: .48, lineWidth: .58,
-      highlight: '#eeeeee', highlightAlpha: .025 * grazing};
+  if (kind === 'translucent' || kind === 'smoked' || kind === 'amber') {
+    // Canvas only tints overlapping ORIGINAL facets; it does not simulate refraction.
+    const glass = {
+      translucent: {fill: '#88908e', edge: '#626d69', alpha: .035, rim: .065, highlight: '#f4f6f2'},
+      smoked: {fill: '#46545a', edge: '#38474d', alpha: .14, rim: .11, highlight: '#d4e0e2'},
+      amber: {fill: '#b18443', edge: '#74552d', alpha: .12, rim: .09, highlight: '#f6e4bd'},
+    }[kind];
+    return {...style, fill: glass.fill, alpha: glass.alpha + glass.rim * grazing,
+      edge: glass.edge, edgeAlpha: kind === 'translucent' ? .44 : .59, lineWidth: .58,
+      highlight: glass.highlight, highlightAlpha: .025 * grazing};
+  }
+  if (kind === 'cobalt') {
+    const reflection = n.map((x, i) => 2 * lightFacing * x - LIGHT[i]);
+    const specular = Math.pow(Math.max(0, dot(reflection, v)), 9);
+    return {...style, fill: tint([71, 102, 129], .65 + .5 * diffuse), alpha: .7,
+      edge: '#2c4052', edgeAlpha: .86, lineWidth: .7,
+      highlight: '#d5e1ea', highlightAlpha: .3 * specular, specular};
+  }
+  if (kind === 'oxide') {
+    return {...style, fill: tint([146, 105, 84], .6 + .55 * diffuse), alpha: .67,
+      edge: '#624638', edgeAlpha: .8, lineWidth: .67, highlight: '#e7d5c7'};
   }
   return {...style, fill: gray(160 + 34 * diffuse), alpha: .28,
     edge: '#272727', edgeAlpha: .88, lineWidth: .76,

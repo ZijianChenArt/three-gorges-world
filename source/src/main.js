@@ -2,20 +2,23 @@ import './style.css';
 import sculptureData from '../public/models/sculpture-wireframes.json';
 import faceData from '../public/models/sculpture-faces.json';
 import {createState,advance,summary,setBudget} from './archive.js';
-import {ArchivePrint,automaticCamera} from './print-renderer.js';
+import {ArchivePrint,automaticCamera,instancePose} from './print-renderer.js';
 import {createCamera,orbitCamera,panCamera,zoomCamera,resetCamera} from './camera.js';
 import {GestureController} from './gestures.js';
+import {MATERIAL_KINDS} from './materials.js';
 import {createRippleState,emitRipple,advanceRipples} from './ripple.js';
 export const PLAYBACK_RATE=1.55;
 const $=s=>document.querySelector(s),canvas=$('#world'),preference=matchMedia('(prefers-reduced-motion: reduce)'),state=createState({reducedMotion:preference.matches,seed:crypto.getRandomValues(new Uint32Array(1))[0],budget:innerWidth<650?16:26,initialCount:innerWidth<650?8:12}),camera=createCamera();
-state.ripples=createRippleState();
+state.ripples=createRippleState();state.poseTime=0;for(const i of state.instances)i.poseStarted=0;
 let renderer=null,backend='loading',rippleCount=0;
-let last=0,lastDraw=0,lastUI=0,dirty=true,touched=-Infinity,viewTime=0,drawCost=0,lastBudgetCheck=0;
+let last=0,lastDraw=0,lastUI=0,dirty=true,touched=-Infinity,viewTime=0,autoView=null,drawCost=0,lastBudgetCheck=0;
 const say=t=>{$('#announcement').textContent=t;};
 const touch=()=>{touched=performance.now();dirty=true;};
+function routeScene(){const phone=innerWidth<650,models=renderer?.models||renderer?.overlay?.models;return{elapsed:state.elapsed,instances:state.instances.map(instance=>({...instance,...instancePose(instance,phone,{elapsed:state.poseTime}),bounds:models?.[instance.modelIndex]?.bounds}))};}
+function nextAutomaticView(dt=0){const goal=automaticCamera(viewTime,innerWidth<650,routeScene());if(!autoView||!dt){autoView=goal;return autoView;}const a=1-Math.exp(-dt*2.8);const next={...goal};for(const key of ['pitch','distance','zoom'])next[key]=autoView[key]+(goal[key]-autoView[key])*a;const angle=Math.atan2(Math.sin(goal.yaw-autoView.yaw),Math.cos(goal.yaw-autoView.yaw));next.yaw=autoView.yaw+angle*a;next.target=autoView.target.map((v,i)=>v+(goal.target[i]-v)*a);autoView=next;return next;}
 function updateUI(){document.body.dataset.playing=String(!state.paused);}
 function resize(){if(!renderer)return;setBudget(state,backend==='webgl-pbr'?(innerWidth<650?16:26):(innerWidth<650?10:14));renderer.resize(innerWidth,$('#app').clientHeight,Math.min(devicePixelRatio||1,innerWidth<650?1.5:2));dirty=true;}
-function rippleAt(x,y){const target=x===undefined?renderer?.centralTarget():renderer?.pick(x,y);if(!target)return;if(state.reducedMotion){say(`A—${target.serial}。减少动态效果已启用。`);return;}if(!emitRipple(state.ripples,{serial:target.serial,origin:target.local||[0,0,0]},state.ripples.elapsed,{reducedMotion:state.reducedMotion}))return;rippleCount++;dirty=true;say(`A—${target.serial}，涟漪扩散。`);}
+function rippleAt(x,y){const target=x===undefined?renderer?.centralTarget():renderer?.pick(x,y);if(!target)return;if(!emitRipple(state.ripples,{serial:target.serial,origin:target.local||[0,0,0]},state.ripples.elapsed,{reducedMotion:state.reducedMotion}))return;rippleCount++;dirty=true;say(`A—${target.serial}，${state.reducedMotion?'局部色彩提示':'涟漪扩散'}。`);}
 const gestures=new GestureController({tap:rippleAt,orbit:(dx,dy)=>{orbitCamera(camera,dx,dy);touch();},pan:(dx,dy)=>{panCamera(camera,dx,dy,innerWidth,$('#app').clientHeight);touch();},zoom:factor=>{zoomCamera(camera,factor);touch();}});
 function cancelGestures(){const ids=[...gestures.pointers.keys()];gestures.cancel();for(const id of ids)if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);}
 canvas.addEventListener('pointerdown',e=>{if(e.button!==0&&e.button!==2)return;e.preventDefault();canvas.focus({preventScroll:true});if(gestures.down({id:e.pointerId,x:e.clientX,y:e.clientY,button:e.button,now:performance.now()}))canvas.setPointerCapture(e.pointerId);touch();});
@@ -26,15 +29,15 @@ canvas.addEventListener('contextmenu',e=>e.preventDefault());canvas.addEventList
 canvas.addEventListener('wheel',e=>{e.preventDefault();zoomCamera(camera,Math.exp(-e.deltaY*.0015));touch();},{passive:false});
 canvas.addEventListener('keydown',e=>{const key=e.key,dirs={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};if(!dirs[key]&&!['+','=','-','Home',' ','Enter'].includes(key))return;e.preventDefault();if(dirs[key]){const[x,y]=dirs[key];if(e.shiftKey)panCamera(camera,x*24,y*24,innerWidth,$('#app').clientHeight);else orbitCamera(camera,x*12,y*12);}else if(key==='+'||key==='=')zoomCamera(camera,1.12);else if(key==='-')zoomCamera(camera,1/1.12);else if(key==='Home')resetCamera(camera);else if(key==='Enter'&&!e.repeat)rippleAt();else if(key===' '&&!e.repeat){state.paused=!state.paused;updateUI();}touch();});
 document.addEventListener('visibilitychange',()=>{cancelGestures();last=performance.now();dirty=true;});addEventListener('blur',cancelGestures);preference.addEventListener('change',e=>{state.reducedMotion=e.matches;if(e.matches){state.paused=true;updateUI();dirty=true;}});
-function registry(){const frames=renderer.frames,s=summary(frames,state);$('#record-count').textContent=String(s.records);$('#edge-count').textContent=s.edges.toLocaleString('en-US');$('#point-count').textContent=String(renderer.renderedPoints||0);$('#sample-count').textContent=String(renderer.renderedSegments||0);$('#face-count').textContent=String(renderer.triangleCount??renderer.facetCount??0);
-  document.body.dataset.edges=String(s.edges);document.body.dataset.records=String(s.records);document.body.dataset.phases=frames.map(f=>f.phase).join(',');document.body.dataset.present=String(s.visible);document.body.dataset.closed=String(s.closed);document.body.dataset.bundles=String(renderer.bundleCount);document.body.dataset.materials=frames.map(f=>['metal','matte','translucent','cut'][f.instance.materialIndex]).join(',');document.body.dataset.elapsed=state.elapsed.toFixed(2);document.body.dataset.budget=String(state.budget);document.body.dataset.renderer=backend;document.body.dataset.meshTriangles=String(renderer.triangleCount??0);document.body.dataset.drawGroups=String(renderer.drawGroups??0);document.body.dataset.ripples=String(state.ripples.waves.length);document.body.dataset.rippleCount=String(rippleCount);document.body.dataset.rippleTargets=state.ripples.waves.map(w=>w.serial).join(',');document.body.dataset.segments=String(renderer.renderedSegments||0);document.body.dataset.points=String(renderer.renderedPoints||0);
+function registry(){const frames=renderer.frames,s=summary(frames,state);$('#record-count').textContent=String(s.records);$('#edge-count').textContent=s.edges.toLocaleString('en-US');$('#sample-count').textContent=String(renderer.renderedSegments||0);$('#face-count').textContent=String(renderer.triangleCount??renderer.facetCount??0);
+  document.body.dataset.edges=String(s.edges);document.body.dataset.records=String(s.records);document.body.dataset.phases=frames.map(f=>f.phase).join(',');document.body.dataset.present=String(s.visible);document.body.dataset.closed=String(s.closed);document.body.dataset.bundles=String(renderer.bundleCount);document.body.dataset.materials=frames.map(f=>MATERIAL_KINDS[f.instance.materialIndex]).join(',');document.body.dataset.elapsed=state.elapsed.toFixed(2);document.body.dataset.budget=String(state.budget);document.body.dataset.renderer=backend;document.body.dataset.meshTriangles=String(renderer.triangleCount??0);document.body.dataset.drawGroups=String(renderer.drawGroups??0);document.body.dataset.ripples=String(state.ripples.waves.length);document.body.dataset.rippleCount=String(rippleCount);document.body.dataset.rippleTargets=state.ripples.waves.map(w=>w.serial).join(',');document.body.dataset.segments=String(renderer.renderedSegments||0);document.body.dataset.points=String(renderer.renderedPoints||0);
 }
-function frame(now){requestAnimationFrame(frame);if(!last)last=now;const dt=Math.min(1,(now-last)/1000);last=now;if(!renderer||document.hidden)return;advance(state,dt*PLAYBACK_RATE);
+function frame(now){requestAnimationFrame(frame);if(!last)last=now;const dt=Math.min(1,(now-last)/1000);last=now;if(!renderer||document.hidden)return;advance(state,dt*PLAYBACK_RATE);if(!state.paused&&!state.reducedMotion)state.poseTime+=dt*PLAYBACK_RATE;for(const i of state.instances)if(i.poseStarted===undefined)i.poseStarted=state.poseTime;
   if(advanceRipples(state.ripples,dt,{paused:state.paused,reducedMotion:state.reducedMotion}))dirty=true;
   const inspecting=gestures.pointers.size>0||now-touched<2400;
-  if(!state.paused&&!state.reducedMotion&&!inspecting)viewTime+=dt;
+  if(!state.paused&&!state.reducedMotion&&!inspecting){viewTime+=dt;nextAutomaticView(dt);}
   if(!inspecting&&!state.paused){const a=1-Math.exp(-dt*1.25);for(const key of ['yaw','pitch','panX','panY'])camera[key]*=1-a;camera.zoom+=(1-camera.zoom)*a;}
-  const auto=automaticCamera(viewTime,innerWidth<650);renderer.camera={...auto,yaw:auto.yaw+camera.yaw,pitch:auto.pitch+camera.pitch,zoom:auto.zoom*camera.zoom,panX:camera.panX,panY:camera.panY};
+  const auto=autoView||nextAutomaticView();renderer.camera={...auto,yaw:auto.yaw+camera.yaw,pitch:auto.pitch+camera.pitch,zoom:auto.zoom*camera.zoom,panX:camera.panX,panY:camera.panY};
   if((dirty||!state.paused)&&now-lastDraw>=1000/32){const started=performance.now();try{renderer.draw(state);}catch(error){console.warn('Renderer fallback:',error.message);useFallback('3D 渲染已中断');renderer.draw(state);}drawCost=drawCost*.9+(performance.now()-started)*.1;dirty=false;lastDraw=now;document.body.dataset.camera=[camera.yaw,camera.pitch,camera.zoom,camera.panX,camera.panY].map(v=>v.toFixed(3)).join(',');document.body.dataset.flight=[viewTime,auto.yaw,auto.pitch,auto.distance,...auto.target].map(v=>v.toFixed(3)).join(',');}
   if(now-lastBudgetCheck>8000){const base=backend==='webgl-pbr'?(innerWidth<650?16:26):(innerWidth<650?10:14);setBudget(state,drawCost>29?Math.max(innerWidth<650?6:8,state.budget-2):drawCost<14?Math.min(base,state.budget+1):state.budget);renderer.faceBudget=drawCost>24?900:innerWidth<650?1100:2100;lastBudgetCheck=now;}
   if(now-lastUI>180){registry();lastUI=now;}
@@ -49,6 +52,6 @@ async function boot(){
     else useFallback('此设备未启用 WebGL2');
   }catch(error){console.warn('PBR initialization unavailable:',error.message);useFallback('3D 渲染暂不可用');}
   if(!renderer.ctx){$('#unsupported').hidden=false;document.body.dataset.status='unsupported';return;}
-  resize();updateUI();renderer.camera=automaticCamera(viewTime,innerWidth<650);try{renderer.draw(state);}catch(error){console.warn('Initial 3D draw unavailable:',error.message);useFallback('3D 渲染暂不可用');renderer.draw(state);}registry();document.body.dataset.status='ready';requestAnimationFrame(frame);
+  resize();updateUI();renderer.camera=nextAutomaticView();try{renderer.draw(state);}catch(error){console.warn('Initial 3D draw unavailable:',error.message);useFallback('3D 渲染暂不可用');renderer.draw(state);}registry();document.body.dataset.status='ready';requestAnimationFrame(frame);
 }
 boot();addEventListener('resize',resize);

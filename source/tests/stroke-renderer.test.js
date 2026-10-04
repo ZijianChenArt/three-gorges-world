@@ -1,4 +1,103 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import * as THREE from 'three';import {StrokeRenderer,SEGMENT_CAP,POINT_CAP} from '../src/stroke-renderer.js';
-test('actual Three line and point buffers use supplied source-derived positions and truthful draw ranges',()=>{const s=new StrokeRenderer(new THREE.Scene()),field={curves:[{points:[[1,2,3],[2,3,4],[3,4,5]],alpha:.8}],points:[{position:[2,3,4],alpha:.5}]};s.update([field]);assert.equal(s.renderedSegments,2);assert.equal(s.renderedPoints,1);assert.equal(s.lines.geometry.drawRange.count,4);assert.equal(s.points.geometry.drawRange.count,1);assert.deepEqual(Array.from(s.linePositions.slice(0,6)),[1,2,3,2,3,4]);assert.ok(s.lines.isLineSegments&&s.points.isPoints);assert.ok(s.lines.material.depthTest);s.update([]);assert.equal(s.renderedSegments,0);assert.equal(s.renderedPoints,0);assert.equal(s.lines.visible,false);s.dispose();});
-test('line and point GPU memory stays fixed under oversize input',()=>{const s=new StrokeRenderer(new THREE.Scene()),positions=s.linePositions,points=s.pointPositions,field={curves:[{points:Array.from({length:SEGMENT_CAP+50},(_,i)=>[i,0,0]),alpha:1}],points:Array.from({length:POINT_CAP+50},(_,i)=>({position:[i,0,0],alpha:.7}))};for(let i=0;i<3;i++)s.update([field]);assert.equal(s.renderedSegments,SEGMENT_CAP);assert.equal(s.renderedPoints,POINT_CAP);assert.equal(s.linePositions,positions);assert.equal(s.pointPositions,points);s.dispose();});
-test('points are legible circular screen-sized marks and cannot be buried behind opaque meshes',()=>{const s=new StrokeRenderer(new THREE.Scene(),{phone:true}),m=s.points.material;assert.ok(m.size>=4);assert.equal(m.sizeAttenuation,false);assert.equal(m.depthTest,false);assert.equal(m.depthWrite,false);assert.ok(m.map.isDataTexture);s.update([{curves:[],points:[{position:[0,0,0],alpha:.48}]}]);assert.ok(s.pointColors[0]<.3);s.dispose();});
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import {StrokeRenderer, SEGMENT_CAP} from '../src/stroke-renderer.js';
+import {sampleEdgeField} from '../src/edge-field.js';
+import {createRippleState, emitRipple, advanceRipples, deformRipplePoint, RIPPLE_DURATION} from '../src/ripple.js';
+
+const assertLineOnly = (scene, renderer) => {
+  assert.deepEqual(scene.children, [renderer.lines]);
+  scene.traverse(object => assert.equal(!!object.isPoints, false));
+  for (const name of ['points', 'pointPositions', 'pointColors', 'pointTexture']) {
+    assert.equal(name in renderer, false, `${name} must not allocate a point-layer resource`);
+  }
+  assert.equal(renderer.renderedPoints, 0);
+  assert.equal(renderer.lines.material.map, null);
+};
+
+test('actual Three line buffers use supplied source-derived positions and truthful draw ranges', () => {
+  const scene = new THREE.Scene(), renderer = new StrokeRenderer(scene);
+  const field = {curves: [{points: [[1, 2, 3], [2, 3, 4], [3, 4, 5]], alpha: .8}]};
+  assertLineOnly(scene, renderer);
+  renderer.update([field]);
+  assert.equal(renderer.renderedSegments, 2);
+  assert.equal(renderer.lines.geometry.drawRange.count, 4);
+  assert.deepEqual(Array.from(renderer.linePositions.slice(0, 6)), [1, 2, 3, 2, 3, 4]);
+  assert.ok(renderer.lines.isLineSegments);
+  assert.ok(renderer.lines.material.depthTest);
+  assertLineOnly(scene, renderer);
+  renderer.update([]);
+  assert.equal(renderer.renderedSegments, 0);
+  assert.equal(renderer.lines.geometry.drawRange.count, 0);
+  assert.equal(renderer.lines.visible, false);
+  assertLineOnly(scene, renderer);
+  renderer.dispose();
+  assert.equal(scene.children.length, 0);
+});
+
+test('line GPU memory stays fixed and bounded under oversize input', () => {
+  const scene = new THREE.Scene(), renderer = new StrokeRenderer(scene);
+  const positions = renderer.linePositions, colors = renderer.lineColors;
+  const field = {curves: [{points: Array.from({length: SEGMENT_CAP + 50}, (_, i) => [i, 0, 0]), alpha: 1}]};
+  for (let i = 0; i < 3; i++) renderer.update([field]);
+  assert.equal(renderer.renderedSegments, SEGMENT_CAP);
+  assert.equal(renderer.lines.geometry.drawRange.count, SEGMENT_CAP * 2);
+  assert.equal(renderer.linePositions, positions);
+  assert.equal(renderer.lineColors, colors);
+  assert.equal(positions.length, SEGMENT_CAP * 6);
+  assert.equal(colors.length, SEGMENT_CAP * 6);
+  assertLineOnly(scene, renderer);
+  renderer.dispose();
+});
+
+test('legacy point input is never read and cannot create visible dots on desktop or phone', () => {
+  for (const phone of [false, true]) {
+    const scene = new THREE.Scene(), renderer = new StrokeRenderer(scene, {phone});
+    const field = {curves: [], get points() { throw new Error('Removed point layer must not be visited'); }};
+    renderer.update([field]);
+    assert.equal(renderer.lines.visible, false);
+    assertLineOnly(scene, renderer);
+    renderer.dispose();
+  }
+});
+
+test('source curves still scatter only on the selected model and gather without introducing point objects', () => {
+  const vertices = [[-.6, 0, 0], [.6, .2, 0], [0, .7, .4]];
+  const frame = {vertices, activeEdges: [[0, 1], [1, 2]], edgeCount: 2, instance: {key: 17}};
+  const sampled = sampleEdgeField(frame, {elapsed: 2, edgeBudget: 2, segments: 5});
+  const scene = new THREE.Scene(), renderer = new StrokeRenderer(scene);
+  const ripples = createRippleState();
+  const fields = () => [1, 2].map(serial => ({
+    ...sampled,
+    curves: sampled.curves.map(curve => ({...curve, points: curve.points.map(point => deformRipplePoint(ripples, serial, point))})),
+  }));
+  renderer.update(fields());
+  const count = renderer.renderedSegments * 6, perModel = count / 2;
+  const baseline = Array.from(renderer.linePositions.slice(0, count));
+  assert.ok(emitRipple(ripples, {serial: 1, origin: [0, 0, 0]}));
+  for (const elapsed of [0, .033, .2, .5, .7, RIPPLE_DURATION]) {
+    advanceRipples(ripples, elapsed - ripples.elapsed);
+    const next = fields();
+    assert.ok(next.every(field => field.points.length === 0 && field.renderedPoints === 0));
+    renderer.update(next);
+    const actual = Array.from(renderer.linePositions.slice(0, count));
+    assert.equal(renderer.renderedSegments, sampled.renderedSegments * 2);
+    assert.ok(renderer.renderedSegments <= SEGMENT_CAP);
+    assert.deepEqual(actual.slice(perModel), baseline.slice(perModel));
+    if (elapsed === .2) assert.notDeepEqual(actual.slice(0, perModel), baseline.slice(0, perModel));
+    if (elapsed === 0 || elapsed === RIPPLE_DURATION) assert.deepEqual(actual, baseline);
+    assertLineOnly(scene, renderer);
+  }
+  renderer.dispose();
+});
+
+test('line disposal releases both GPU resources and removes the sole scene object', () => {
+  const scene = new THREE.Scene(), renderer = new StrokeRenderer(scene);
+  let geometryDisposals = 0, materialDisposals = 0;
+  renderer.lines.geometry.addEventListener('dispose', () => geometryDisposals++);
+  renderer.lines.material.addEventListener('dispose', () => materialDisposals++);
+  renderer.dispose();
+  assert.equal(geometryDisposals, 1);
+  assert.equal(materialDisposals, 1);
+  assert.deepEqual(scene.children, []);
+});
