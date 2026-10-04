@@ -22,6 +22,8 @@ Six successive spatial quantizations operate on the previous surviving coordinat
 
 The displayed structural-edge count is the actual count of surviving crease/boundary edges, not the full triangulation edge count. It follows the same quantization process. Registry frames are separate annotations and are not model geometry. The renderer also exposes actual surviving mesh triangle counts for validation.
 
+The automatic processing/intake clock runs at1.55× the previous release pace. Source and stage geometry remain shared and unchanged.
+
 ## More simultaneous instances and continued accumulation
 
 The first view contains12 instances on desktop or8 on phones, instead of3. Intake becomes faster as independent copies retire. The default PBR admission budget is26 desktop /16 phone, dynamically adjusted to drawing cost, with a strict32-instance safety bound. Detailed geometry is shared, not cloned into a growing mesh pool.
@@ -34,9 +36,11 @@ If WebGL2 is unavailable, initialization fails or the context is lost, the same 
 
 ## Viewing and accessibility
 
-The camera moves automatically. One-finger/mouse drag rotates naturally; two fingers pan and pinch; right mouse drag pans; the wheel zooms. These controls change observation, never the processing rule. After eight seconds without inspection, manual offsets blend back into the automatic path.
+The camera moves automatically. One-finger/mouse drag rotates naturally; two fingers pan and pinch; right mouse drag pans; the wheel zooms. These controls change observation, never the processing rule. After2.4 seconds without inspection, manual offsets blend smoothly back into the automatic path. The automatic camera now follows a continuous world-space perspective flight, with lateral translation, depth parallax and dolly motion rather than a small orthographic wobble.
 
-Pause stops the process and automatic view but leaves manual inspection available. Keyboard arrows rotate, Shift+arrows pan, +/− zoom, Home resets and Space pauses. Reduced-motion preference begins paused. Hidden tabs and the explanation dialog suspend execution without skipping unseen time.
+Pause stops the process and automatic view but leaves manual inspection available. Tap a visible surviving form to emit a spatial ripple that temporarily displaces nearby existing instances; Enter activates it at the central visible form. The wave propagates through3D space and returns home within4.76 seconds. At most four waves coexist. It never recreates deleted edges or triangles. User-triggered ripples finish even when the archive is paused; reduced motion suppresses their displacement.
+
+Keyboard arrows rotate, Shift+arrows pan, +/− zoom, Home resets and Space pauses. Reduced-motion preference begins paused and suppresses automatic flight even if processing is manually resumed. Hidden tabs and the explanation dialog suspend execution without skipping unseen time.
 
 Selection/callout suppression is scoped to the artwork; explanation text stays copyable. No rapid flashing is used.
 

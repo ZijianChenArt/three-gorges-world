@@ -19,7 +19,7 @@ export class GestureController{
     if(this.mode==='orbit')this.actions.orbit?.(dx,dy);
     if(this.mode==='pan')this.actions.pan?.(dx,dy);
   }
-  tick(now){if(this.mode!=='pending'||this.pointers.size!==1)return;const p=[...this.pointers.values()][0];if(now-p.started>=this.holdDelay){this.mode='hold';this.held=!!this.actions.holdStart?.(p.startX,p.startY);}}
+  tick(now){if(!this.actions.holdStart||this.mode!=='pending'||this.pointers.size!==1)return;const p=[...this.pointers.values()][0];if(now-p.started>=this.holdDelay){this.mode='hold';this.held=!!this.actions.holdStart?.(p.startX,p.startY);}}
   up(id,cancelled=false){
     const p=this.pointers.get(id);if(!p)return;
     if(this.mode==='pending'&&!cancelled)this.actions.tap?.(p.startX,p.startY);

@@ -1,6 +1,15 @@
-# Release validation — 5.0.0
+# Release validation — 5.1.0
 
-66 automated tests pass, followed by the production Vite build.
+84 automated tests pass, followed by the production Vite build.
+
+## New flight and ripple checks
+
+- Perspective camera and Canvas annotations match numerically, including off-axis pan. World-space target and eye translate continuously, with real depth parallax and dolly movement.
+- Reference model displacement is about147px desktop and80px phone after five seconds. An hour-long trajectory stays bounded and smooth.
+- Natural horizontal/vertical inspection is checked in both orthographic and perspective projections.
+- Ripple propagation, smooth return, four-wave cap, paused responses, reduced-motion suppression, cancelled touches and actual PBR matrix displacement are tested. No edge or triangle counts change because of a ripple, and zero-geometry records cannot be picked or resurrected.
+- Desktop and phone Canvas render proofs were inspected at0,5,10,25 and50 seconds; these are explicitly compatibility renders, not GPU screenshots.
+- The surrounding title and counter strip are reduced; source IDs and spatial connections remain.
 
 ## Verified in code and actual-asset tests
 

@@ -10,3 +10,5 @@ test('pointer cancellation and focus loss cannot leave gathering active',()=>{co
 test('cancelled short press never ripples',()=>{const{g,events}=fixture();g.down({id:1,x:0,y:0,now:0});g.up(1,true);assert.equal(events.length,0);});
 test('right drag pans instead of orbiting',()=>{const{g,events}=fixture();g.down({id:1,x:0,y:0,button:2,now:0});g.move({id:1,x:20,y:30});g.up(1);assert.deepEqual(events,[['pan',20,30]]);});
 test('camera zoom, pan and pitch remain bounded and resettable',()=>{const c=createCamera();orbitCamera(c,20,10000);zoomCamera(c,100);panCamera(c,10000,-10000,320,568);assert.equal(c.pitch,1.15);assert.equal(c.zoom,2.6);assert.equal(c.panX,.48);assert.equal(c.panY,-.48);zoomCamera(c,.0001);assert.equal(c.zoom,.55);resetCamera(c);assert.deepEqual(c,createCamera());});
+
+test('tap-only mode never loses a stationary touch to an absent hold action',()=>{const events=[],g=new GestureController({tap:(...x)=>events.push(x)});g.down({id:1,x:10,y:20,now:0});g.tick(900);g.up(1);assert.deepEqual(events,[[10,20]]);});
