@@ -113,7 +113,7 @@ export function sampleEdgeField(frame, {
       addCurve(0, left, leftSteps);
       addCurve(right, 1, subdivisions - leftSteps);
     } else addCurve(0, 1, subdivisions);
-    selected.push({at, edge: [a, b], patch, phase, local, edgeKey, split, left, right});
+    selected.push({at, normal, length, edge: [a, b], patch, phase, local, edgeKey, split, left, right});
   }
 
   // Points sit on the selected surviving arcs (often at their split tips). They
@@ -123,10 +123,15 @@ export function sampleEdgeField(frame, {
     const record = selected[samples <= selected.length ? Math.floor(i * selected.length / samples) : i % selected.length];
     const ordinal = Math.floor(i / selected.length);
     const side = ((hash(record.edgeKey) >>> 0) + ordinal) % 4;
-    const t = side === 0 ? 0 : side === 1 ? 1 : side === 2 ? (record.split ? record.left : .32) : (record.split ? record.right : .68);
+    const rest = side === 0 ? 0 : side === 1 ? 1 : side === 2 ? (record.split ? record.left : .32) : (record.split ? record.right : .68);
+    const orbitPhase=time*(.68+random(record.edgeKey,6)*.35)+random(record.edgeKey,7)*TAU+ordinal*1.3;
+    const travel=reducedMotion?rest:.5+.5*Math.sin(orbitPhase);
+    const t=reducedMotion?rest:rest*.35+travel*.65;
+    const breathing=reducedMotion?0:Math.sin(orbitPhase*.63)**2;
+    const lift=reducedMotion?0:record.length*(.03+.14*record.phase.pointAlpha)*breathing;
     points.push({
-      position: record.at(t),
-      alpha: (.08 + .92 * record.phase.pointAlpha) * (.68 + .32 * (1 - record.local)),
+      position: record.at(t).map((value,axis)=>value+record.normal[axis]*lift),
+      alpha: .48+.52*record.phase.pointAlpha*(.65+.35*breathing),
       edge: record.edge.slice(),
       patch: record.patch,
     });

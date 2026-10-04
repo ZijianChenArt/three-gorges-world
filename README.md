@@ -4,7 +4,7 @@ An autonomous artwork about an archive that retains its registrations while prog
 
 ## Point / line / surface parameters
 
-The visible artwork has no title or concept paragraph. Only numerical record IDs, spatial links, render status, R/E/P/L/F parameters and accessible icon controls remain. The tucked-away help contains the parameter key and controls.
+The visible artwork has no title or concept paragraph. Only numerical record IDs, spatial links, render status, R/E/P/L/F parameters remain. There is no visible toolbar, control button or help modal. Keyboard and direct-touch controls are described here and in the canvas accessible label.
 
 Curved polylines are constructed from actual surviving structural edges. Their endpoints follow the current quantized vertices; source-local normals bow them into curves, and smooth interior gaps expose corresponding points. No independent decorative particle cloud is added. Selection is deterministic and bounded. The physical renderer uses real Three.js LineSegments and Points in the same 3D scene, rather than drawing model strokes over a 2D overlay.
 
@@ -24,11 +24,11 @@ The primary renderer uses Three.js WebGL2 and all 28,384 original GLB triangles 
 
 - Physical silver metal, rough dark surfaces, glass transmission and brushed-looking metal use built-in MeshStandardMaterial / MeshPhysicalMaterial.
 - A generated RoomEnvironment is prefiltered through PMREM for environment illumination and reflections. No external HDR service or image is required.
-- ACES tone mapping, environment lighting, directional illumination and PCF soft shadow maps provide depth and surface response.
+- ACES tone mapping, environment lighting, directional illumination and PCF soft self-shadow maps provide depth and surface response. The former flat-colored global floor has been replaced by the shallow planar reflection described below.
 - Glass uses transmission, thickness and index of refraction, rather than pretending low opacity is physical glass. Phone transmission resolution and roughness are reduced for cost.
 - InstancedMesh batches share source/stage geometry and materials. Each instance carries an independent matrix and GPU morph weight.
 
-These are physically based rasterized materials, not ray tracing. No custom shader patch is required: the built-in Three.js instanced-morph and PBR paths are used. Relevant official references: [physical materials](https://threejs.org/docs/pages/MeshPhysicalMaterial.html), [PMREM environments](https://threejs.org/docs/pages/PMREMGenerator.html), and [instanced morphs](https://threejs.org/docs/pages/InstancedMesh.html).
+These are physically based rasterized materials, not ray tracing. Built-in Three.js instanced-morph and PBR paths are used for ordinary instances; the reflection has a small edge/background-fade shader. Relevant official references: [physical materials](https://threejs.org/docs/pages/MeshPhysicalMaterial.html), [PMREM environments](https://threejs.org/docs/pages/PMREMGenerator.html), and [instanced morphs](https://threejs.org/docs/pages/InstancedMesh.html).
 
 ## Geometry loss is real
 
@@ -46,6 +46,12 @@ The first view contains12 instances on desktop or8 on phones, instead of3. Intak
 
 Cumulative registrations never reset. Old records are represented by exact-count archive bundles, excluding active instances. Detailed instances, recent descriptors and bundle rendering remain bounded. This provides increasing density and archived totals without unbounded RAM or scene-object growth. New forms are copies and transformations of the five real sources, not newly generated AI assets.
 
+## Shallow reflection ground
+
+The global matte-colored plane is replaced with a real planar reflection of the live scene using the official [Three.js Reflector](https://threejs.org/docs/pages/Reflector.html). The original sculpture pedestals remain unchanged. Reflected background pixels become transparent and the plane fades at its edges, removing the opaque color plate. Reflection strength is subtle; no environment map is misrepresented as a reflection of the models.
+
+The target is capped at512×512 desktop or256×256 phone with no multisampling, and captures are throttled. The reflector hides itself during capture, so it cannot recursively reflect itself. No reflected copy is added to R/E/P/L/F counts or history. Canvas compatibility does not pretend to render this GPU reflection and contains no global floor plate.
+
 ## Explicit compatibility path
 
 If WebGL2 is unavailable, initialization fails or the context is lost, the same autonomous process continues in a clearly labeled Canvas line-drawing compatibility mode. It is not presented as the realistic PBR result. The fallback retains the larger initial population, exact structural counts, optional controls and bounded archive.
@@ -54,11 +60,15 @@ If WebGL2 is unavailable, initialization fails or the context is lost, the same 
 
 The camera moves automatically. One-finger/mouse drag rotates naturally; two fingers pan and pinch; right mouse drag pans; the wheel zooms. These controls change observation, never the processing rule. After2.4 seconds without inspection, manual offsets blend smoothly back into the automatic path. The automatic camera now follows a continuous world-space perspective flight, with lateral translation, depth parallax and dolly motion rather than a small orthographic wobble.
 
-Pause stops the process and automatic view but leaves manual inspection available. Tap a visible surviving form to emit a spatial ripple that temporarily displaces nearby existing instances; Enter activates it at the central visible form. The wave propagates through3D space and returns home within4.76 seconds. At most four waves coexist. It never recreates deleted edges or triangles. User-triggered ripples finish even when the archive is paused; reduced motion suppresses their displacement.
+Pause stops the process and automatic view but leaves manual inspection available. Tap a visible surviving form to scatter and gather only that instance's current vertices, source curves and points. Enter activates it at a central visible point. A local wave returns within4.8 seconds; all instance poses and every unselected model stay unchanged. At most two independently selected targets can respond at once, and repeat taps cannot reset an active wave. The regular shared source buffers remain immutable. Temporary target-owned position, normal and index buffers follow the current quantization stage and are disposed when the response ends. Logically erased geometry cannot be selected or restored. User-triggered responses finish even while processing is paused; reduced motion suppresses deformation.
 
-Keyboard arrows rotate, Shift+arrows pan, +/− zoom, Home resets and Space pauses. Reduced-motion preference begins paused and suppresses automatic flight even if processing is manually resumed. Hidden tabs and the explanation dialog suspend execution without skipping unseen time.
+Picking uses submitted points/curves/triangles, not whole registration boxes. The PBR path additionally raycasts actual current mesh patches with per-instance morph weights, including the deformed temporary geometry. Empty space and erased records do nothing.
 
-Selection/callout suppression is scoped to the artwork; explanation text stays copyable. No rapid flashing is used.
+Points are4.3px desktop /5px phone circular marks. Their seeded travel and breathing stay attached to surviving source curves. They use a depth-independent analytical point layer so opaque surfaces do not bury them; the point coordinates remain in the same3D world. Canvas uses matching high-contrast marks.
+
+Keyboard arrows rotate, Shift+arrows pan, +/− zoom, Home resets and Space pauses. Reduced-motion preference begins paused and suppresses automatic flight even if processing is manually resumed. Hidden tabs suspend execution without skipping unseen time. The visible control cluster and modal have been removed; Space pauses and Home resets the view.
+
+Selection/callout suppression remains scoped to the artwork. No rapid flashing is used.
 
 ## Assets and development
 
