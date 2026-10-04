@@ -6,3 +6,5 @@ test('iOS callout suppression remains canvas scoped and explanation selectable',
 test('no private data, analytics, requests, storage, or AI calls',()=>{const s=read('src/main.js')+read('index.html');for(const x of ['fetch(','sendBeacon','localStorage','sessionStorage','XMLHttpRequest'])assert.ok(!s.includes(x));});
 test('pause, reduced motion, interruption and about handling are present',()=>{const m=read('src/main.js');for(const x of ['prefers-reduced-motion','visibilitychange','document.hidden||about.open','state.paused','cancelGestures'])assert.ok(m.includes(x));});
 test('Pages-relative paths stay supported',()=>{assert.ok(read('vite.config.js').includes("base: './'"));assert.ok(existsSync(new URL('../public/.nojekyll',import.meta.url)));});
+
+test('ongoing random intake and adaptive budgeting are explicit',()=>{const s=read('src/main.js');for(const x of ['crypto.getRandomValues','setBudget','drawCost','dataset.closed','dataset.materials'])assert.ok(s.includes(x));assert.ok(read('index.html').includes('风格化'));});

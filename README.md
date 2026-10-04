@@ -1,40 +1,49 @@
 # 全部保留 / All Assets Retained.
 
-An autonomous web artwork in the form of a fictional retention procedure. Five actual source sculptures are registered, then repeatedly quantized, merged and reduced. Their geometry reaches zero while their numbered records and original bounding volumes remain. Further source copies enter as new records with different deterministic placements, sizes and rotations.
+An autonomous web artwork in the form of a fictional retention procedure. Source sculptures enter continuously as differently placed, sized, rotated and surfaced copies. Each instance is registered, quantized and reduced to zero geometry. The records keep accumulating.
 
-The contradiction is performed by the geometry and register, not by a score. There is no AI judgement, quality metric, visitor task, or claim that the source files are destroyed.
+The contradiction is performed by the geometry and register: the archive grows while the things it claims to retain lose their spatial detail. There is no quality score, AI judgement, visitor task or claim that source files are destroyed.
 
-## The procedure
+## Continuous intake and accumulation
 
-Each intake begins with the original 5,789 crease/boundary edges. Original coordinates are normalized uniformly per sculpture. Successively coarser grids move the surviving vertices continuously to their nearest grid points. At each commit, duplicate edges and zero-length edges are removed. Each stage starts from the previous stage, so discarded topology never resurrects within an instance.
+A random seed is generated once per visit. There are no fixed groups of five or whole-world resets. Intake times, source selections, transforms, material treatments and individual erasure durations are deterministic functions of that seed. Three initial instances become a more crowded foreground over the following minutes. Every source type appears early, then further copies are selected stochastically.
 
-After approximately one minute, the five current instances have no model edges or nondegenerate faces. Empty records remain for 12 seconds, followed by an explicit source-copy reload notice. New instances arrive separately in the next intake. The current effective-edge count is the sum of actual `activeEdges` arrays. Registration counts increase only when a new numbered instance enters. Empty historical records are represented by deterministic serial numbers; only the most recent history layer is drawn, keeping memory and rendering bounded.
+Each instance has its own registration, quantization and empty-record hold. Vertices move continuously to successively coarser grid points; coincident edges and zero-length edges are removed at each commit. Processing always begins from the previous surviving topology, so deleted detail never resurrects within an instance. All sampled surface triangles follow the same coordinates and degenerate away with the lines.
 
-Black and gray facets are sampled original mesh triangles, never convex hulls or invented caps. Their vertices undergo the same quantization and degenerate faces are discarded. Thin bounding frames are registry annotations and are not included in model edge counts. A narrow record strip and in-space identifiers continue to operate normally as the scene becomes empty.
+The effective-edge count is the sum of the actual active-edge arrays of all foreground instances, not a fictional score. Total registrations equal current instances plus closed records. Older records accumulate in a deeper layer of empty wire boxes. At larger counts they become explicitly counted bundles, with exact closed-record ranges and counts; live records are excluded from those bundles.
+
+The total registry is not reset or capped at five. Detailed rendering is necessarily bounded: the default admission budget is 14 desktop / 7 phone, adjusted by observed drawing cost. Reducing this budget delays future intake; it never silently deletes unfinished geometry. At most 16 detailed instances, eight recent history descriptors and 64 desktop / 28 phone archive bundles are held or drawn. This allows accumulating totals without unbounded arrays, meshes or GPU memory.
+
+## Monochrome material appearances
+
+Four stylized Canvas2D treatments are applied to the actual source facets:
+
+- Metal: view-dependent reflected bands and restrained bright edge cues.
+- Matte: broad diffuse gray planes without specular response.
+- Translucent: low-alpha original facets layered far-to-near, with softer edges.
+- Cut: source-anchored hatch lines clipped analytically to the original triangles, plus real plane/edge intersections.
+
+These are intentional graphic approximations, not a physically based renderer or ray tracer. No hulls, invented caps or unrelated black masking planes fill the models' apertures. Hatch and facet budgets are bounded, and there is no rapid flashing or per-frame random jitter.
 
 ## Watching and optional inspection
 
-The camera follows a slow continuous path automatically. No interaction is needed to see the full work. Optional one-finger/mouse dragging rotates the actual projected scene, in the natural direct-manipulation direction. Two fingers pan and pinch-zoom; right mouse dragging pans, and the wheel zooms. These actions change only the view, never the retention procedure.
+The camera moves slowly on its own. One-finger/mouse dragging rotates the scene in the natural direct-manipulation direction. Two fingers pan and pinch-zoom; right mouse dragging pans, and the wheel zooms. These actions change only the view, never the automatic procedure.
 
-After eight seconds without inspection, automatic camera movement resumes and manual offsets blend away smoothly. Pause stops both the procedure and automatic camera; manual inspection remains available. Reset View returns to the automatic view. Keyboard arrows rotate, Shift+arrows pan, +/− zoom, Home resets, and Space pauses/plays.
+After eight seconds without inspection, automatic camera movement resumes and manual offsets blend away smoothly. Pause stops the procedure and automatic camera; manual inspection remains available. Keyboard arrows rotate, Shift+arrows pan, +/− zoom, Home resets, and Space pauses/plays.
 
-The iOS callout and selection suppression is scoped to the canvas and decorative overlays. Explanation text remains selectable. Reduced-motion preference starts the work paused. Hidden tabs and the explanation dialog suspend execution without skipping unseen time. There is no rapid flashing or full-screen strobe.
+The iOS callout/selection suppression is scoped to the canvas and decorative overlays. Explanation text stays selectable. Reduced-motion preference starts paused. Hidden tabs and the explanation dialog suspend execution without skipping unseen time.
 
-## Assets
+## Preserved source assets
 
-- Memory Aperture / 记忆孔径
-- Resonance Garden / 共振花园
-- Data Cloud / 数据云
-- Echo Chamber / 回声室
-- Phase Bloom / 相位花
+Five actual sculptures remain the source vocabulary: Memory Aperture, Resonance Garden, Data Cloud, Echo Chamber and Phase Bloom. New instances are transformations of these sources, not newly generated AI assets.
 
-The original `models/three-gorges.glb` is unchanged. Its legacy filename and repository name do not describe a dam reconstruction. `models/sculpture-wireframes.json` contains 5,789 actual crease/boundary edges; `models/sculpture-faces.json` contains 2,000 actual source triangles. Reproducible extraction scripts and asset notes are included under `scripts/` in the source package. The original Blender project is retained in the repository's `artwork/` directory. Earlier artwork versions remain in Git history.
+The unchanged legacy-named `models/three-gorges.glb` is not a dam reconstruction. `models/sculpture-wireframes.json` contains 5,789 source crease/boundary edges; `models/sculpture-faces.json` contains 2,000 source triangles. Reproducible extractors are included in `source/scripts/`. The Blender project remains in `artwork/`, and prior artwork versions remain in Git history.
 
 ## Runtime and development
 
-Canvas 2D projects the three-dimensional geometry, so WebGL/GPU support is not required. Phone and desktop compositions use the same process with different spatial framing. There is no backend, analytics, upload, external font, browser storage, runtime CDN, audio, or AI call. State lasts only for the current page visit.
+Canvas2D projects true three-dimensional coordinates without requiring WebGL. There is no backend, analytics, upload, browser storage, external font/CDN, audio or AI call. State lasts only for the current visit.
 
-Use Node.js 22.12+ or 24+. From the `source/` folder:
+Use Node.js 22.12+ or 24+. From `source/`:
 
 ```sh
 npm ci
@@ -43,4 +52,4 @@ npm run check
 npm run preview
 ```
 
-`npm run check` runs tests and builds `dist/`. The static production package is deployed to the existing GitHub Pages site with relative URLs. Original model source files are supplied alongside the runnable source. This is an artwork depicting a fictional procedure, not an archival tool or a recommendation for real preservation work.
+`npm run check` runs the tests and builds `dist/`. The static package uses relative URLs for the existing GitHub Pages site. This depicts a fictional procedure; it is not archival software or real preservation guidance.
