@@ -51,6 +51,7 @@ export function prepareSurfacePatches(source) {
     return Object.freeze(indices.map((values, patch) => {
       const geometry = new BufferGeometry();
       geometry.name = `${source.id}:stage:${stageIndex}:patch:${patch}`;
+      // Includes the same source UV field; spatial patches cannot create seams.
       for (const [name, attribute] of Object.entries(base.attributes)) geometry.setAttribute(name, attribute);
       geometry.setIndex(new BufferAttribute(new base.index.array.constructor(values), 1));
       geometry.morphAttributes = base.morphAttributes;

@@ -24,26 +24,26 @@ test('a tap deforms only the exact serial, starts at rest and returns exactly ho
   assert.equal(advanceRipples(ripples, .1), false);
 });
 
-test('the impulse is measurable at 33ms, travels locally, and rebounds within .82 seconds', () => {
+test('the impulse is measurable at 33ms, travels locally, and rebounds within 1.5 seconds', () => {
   const ripples = createRippleState(), near = [.1, 0, 0], far = [1, 0, 0];
   tap(ripples);
   advanceRipples(ripples, .033);
   assert.ok(displacement(deformRipplePoint(ripples, 1, near), near) > .02);
   assert.ok(pulseIntensity(ripples, 1, near) > .2);
   const footprintEdge = [.3, 0, 0];
-  assert.ok(pulseIntensity(ripples, 1, footprintEdge) > .4);
-  assert.ok(displacement(deformRipplePoint(ripples, 1, footprintEdge), footprintEdge) > .1);
+  assert.ok(pulseIntensity(ripples, 1, footprintEdge) > .2);
+  assert.ok(displacement(deformRipplePoint(ripples, 1, footprintEdge), footprintEdge) > .05);
   assert.deepEqual(deformRipplePoint(ripples, 1, far), far);
   assert.equal(pulseIntensity(ripples, 1, far), 0);
-  advanceRipples(ripples, .192);
+  advanceRipples(ripples, .235);
   const largest = displacement(deformRipplePoint(ripples, 1, far), far);
   assert.ok(largest > .38);
-  advanceRipples(ripples, .2);
+  advanceRipples(ripples, .55);
   assert.ok(displacement(deformRipplePoint(ripples, 1, far), far) < largest * .3);
   advanceRipples(ripples, RIPPLE_DURATION - ripples.elapsed);
   assert.deepEqual(deformRipplePoint(ripples, 1, far), far);
   assert.equal(pulseIntensity(ripples, 1, far), 0);
-  assert.ok(RIPPLE_DURATION >= .5 && RIPPLE_DURATION <= .9);
+  assert.ok(RIPPLE_DURATION >= 1.3 && RIPPLE_DURATION <= 1.7);
 });
 
 test('near and far points have distinct single sharp peaks followed by a softer decay', () => {
@@ -51,7 +51,7 @@ test('near and far points have distinct single sharp peaks followed by a softer 
   const peaks = points.map(local => {
     const ripples = createRippleState(); tap(ripples);
     const samples = [];
-    for (let i = 0; i < 820; i++) {
+    for (let i = 0; i < 1500; i++) {
       advanceRipples(ripples, .001);
       samples.push(pulseIntensity(ripples, 1, local));
     }
@@ -69,7 +69,7 @@ test('near and far points have distinct single sharp peaks followed by a softer 
   for (let i = 1; i < peaks.length; i++) assert.ok(peaks[i] - peaks[i - 1] > 45);
 });
 
-test('fringe intensity shares the radial deformation envelope and exact picked origin', () => {
+test('edge tint intensity shares the radial deformation envelope and exact picked origin', () => {
   const origin = [.7, -.4, .2], local = [.8, -.4, .2];
   const ripples = createRippleState(); tap(ripples, 9, origin); advanceRipples(ripples, .033);
   const before = JSON.stringify(ripples);
@@ -115,8 +115,8 @@ test('point deformation is deterministic, bounded, radial, and does not change s
 
 test('front, tail, and clicked origin join continuously with no coordinate discontinuity', () => {
   const local = [.4, 0, 0];
-  const arrival = .5 * (1 - Math.exp(-((.4 / 1.5) ** 2)));
-  for (const time of [arrival, arrival + .32, RIPPLE_DURATION]) {
+  const arrival = .85 * (1 - Math.exp(-((.4 / 1.8) ** 2)));
+  for (const time of [arrival, arrival + .65, RIPPLE_DURATION]) {
     const values = [time - 1e-6, time, time + 1e-6].map(elapsed => {
       const ripples = createRippleState(); tap(ripples); advanceRipples(ripples, elapsed);
       return displacement(deformRipplePoint(ripples, 1, local), local);

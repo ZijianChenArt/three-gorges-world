@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {prepareArchive, makeInstance, instanceFrame} from '../src/archive.js';
 import {sampleEdgeField, MAX_FIELD_EDGES, MAX_FIELD_SEGMENTS} from '../src/edge-field.js';
 import {patchIndex} from '../src/surface-patches.js';
+import {createRippleState, emitRipple, advanceRipples, deformRipplePoint, createRippleDeformer, RIPPLE_DURATION} from '../src/ripple.js';
 
 const groups = JSON.parse(readFileSync(new URL('../public/models/sculpture-wireframes.json', import.meta.url))).groups;
 const models = prepareArchive(groups);
@@ -31,6 +32,8 @@ test('curves come only from actual surviving source edges, with no point layer a
       const sampled = sampleEdgeField(frame, {elapsed, edgeBudget: 71, pointBudget: 49});
       const active = new Set(frame.activeEdges.map(edgeKey));
       assert.equal(sampled.logicalEdges, frame.edgeCount);
+      assert.equal(sampled.curves.length, Math.min(71, frame.activeEdges.length));
+      assert.equal(new Set(sampled.curves.map(c => c.edge.slice().sort((a, b) => a - b).join('/'))).size, sampled.curves.length);
       assert.ok(sampled.curves.every(curve => active.has(edgeKey(curve.edge))));
       assert.deepEqual(sampled.points, []);
       assert.deepEqual(frame.activeEdges, before);
@@ -40,40 +43,55 @@ test('curves come only from actual surviving source edges, with no point layer a
   }
 });
 
-test('each source edge keeps its exact current endpoints, with real visibly bent intermediate vertices', () => {
+test('every selected source edge is exactly one continuous straight polyline with exact endpoints', () => {
   for (let index = 0; index < models.length; index++) {
     const frame = makeFrame(index, 0);
     const sampled = sampleEdgeField(frame, {elapsed: 3, edgeBudget: 64, segments: 5});
-    let noticeablyBent = 0;
-    for (const fragments of groupCurves(sampled.curves).values()) {
-      const [a, b] = fragments[0].edge, start = frame.vertices[a], end = frame.vertices[b];
-      assert.deepEqual(fragments[0].points[0], start);
-      assert.deepEqual(fragments.at(-1).points.at(-1), end);
-      const delta = end.map((v, i) => v - start[i]), length = Math.hypot(...delta);
-      const offLine = fragments.flatMap(c => c.points).map(point => {
-        const rel = point.map((v, i) => v - start[i]);
-        const t = rel.reduce((sum, v, i) => sum + v * delta[i], 0) / (length * length);
-        return distance(point, start.map((v, i) => v + t * delta[i]));
-      });
-      if (Math.max(...offLine) > length * .08) noticeablyBent++;
+    assert.equal(sampled.curves.length, 64);
+    assert.equal(groupCurves(sampled.curves).size, sampled.curves.length);
+    assert.equal(sampled.renderedSegments, sampled.curves.length * 5);
+    for (const curve of sampled.curves) {
+      const [a, b] = curve.edge, start = frame.vertices[a], end = frame.vertices[b];
+      assert.equal(curve.points.length, 6);
+      assert.deepEqual(curve.points[0], start);
+      assert.deepEqual(curve.points.at(-1), end);
+      for (let i = 1; i < 5; i++) {
+        const expected = start.map((v, axis) => v + (end[axis] - v) * (i / 5));
+        assert.deepEqual(curve.points[i], expected);
+      }
     }
-    assert.ok(noticeablyBent > 40, `source ${index} has substantial curved edge coverage`);
   }
 });
 
-test('interior splitting removes part of the same source arc without adding new endpoints or excess segments', () => {
-  const frame = makeFrame(1);
-  const sampled = sampleEdgeField(frame, {elapsed: 2, edgeBudget: 96, segments: 5});
-  const byEdge = groupCurves(sampled.curves);
-  const split = [...byEdge.values()].filter(fragments => fragments.length === 2);
-  assert.ok(split.length > 25 && split.length < 85);
-  for (const fragments of byEdge.values()) {
-    assert.equal(fragments.reduce((n, curve) => n + curve.points.length - 1, 0), 5);
-    assert.ok(fragments.length <= 2);
-    if (fragments.length === 2) assert.ok(distance(fragments[0].points.at(-1), fragments[1].points[0]) > 0);
-  }
-  const moved = groupCurves(sampleEdgeField(frame, {elapsed: 5, edgeBudget: 96}).curves);
-  assert.ok(split.some(fragments => distance(fragments[0].points.at(-1), moved.get(edgeKey(fragments[0].edge))[0].points.at(-1)) > .002));
+test('duplicate and reversed source identities never create overlaid polylines', () => {
+  const vertices = [[0, 0, 0], [1, 0, 0], [1, 1, 0]];
+  const frame = {vertices, activeEdges: [[0, 1], [1, 0], [0, 1], [1, 2], [2, 1]], edgeCount: 2};
+  const sampled = sampleEdgeField(frame, {edgeBudget: 99, segments: 5});
+  assert.equal(sampled.logicalEdges, 2);
+  assert.equal(sampled.curves.length, 2);
+  assert.equal(new Set(sampled.curves.map(c => c.edge.slice().sort().join('/'))).size, 2);
+  assert.equal(sampled.renderedSegments, 10);
+});
+
+test('only the shared mesh ripple bends sampled edges, coherently and without gaps', () => {
+  const vertices = [[-.6, .15, 0], [.6, .15, 0]];
+  const frame = {vertices, activeEdges: [[0, 1]], edgeCount: 1};
+  const sampled = sampleEdgeField(frame, {segments: 6});
+  const rest = sampled.curves[0], ripples = createRippleState();
+  assert.ok(emitRipple(ripples, {serial: 7, origin: [0, 0, 0]}));
+  advanceRipples(ripples, .1);
+  const deformMesh = createRippleDeformer(ripples, 7);
+  const bent = rest.points.map(point => deformRipplePoint(ripples, 7, point));
+  rest.points.forEach((point, i) => assert.deepEqual(bent[i], deformMesh(...point, [0, 0, 0])));
+  assert.deepEqual(bent[0], deformRipplePoint(ripples, 7, vertices[0]));
+  assert.deepEqual(bent.at(-1), deformRipplePoint(ripples, 7, vertices[1]));
+  const chordMidpoint = bent[0].map((v, axis) => (v + bent.at(-1)[axis]) * .5);
+  assert.ok(distance(bent[3], chordMidpoint) > .01, 'shared nonlinear deformation bends the edge');
+  assert.equal(bent.length, rest.points.length);
+  assert.deepEqual(sampleEdgeField(frame, {segments: 6, elapsed: .1}), sampled);
+  assert.deepEqual(rest.points.map(p => deformRipplePoint(ripples, 8, p)), rest.points);
+  advanceRipples(ripples, RIPPLE_DURATION);
+  assert.deepEqual(rest.points.map(p => deformRipplePoint(ripples, 7, p)), rest.points);
 });
 
 test('patch assignment uses the original edge midpoint throughout quantization', () => {
@@ -89,40 +107,18 @@ test('patch assignment uses the original edge midpoint throughout quantization',
   }
 });
 
-test('selection is deterministic and independent of time, with healthy first-five-seconds change', () => {
+test('elapsed time and reduced motion never gate, bow, split, or pulse source lines', () => {
   const frame = makeFrame(2);
-  const options = {elapsed: 0, edgeBudget: 60, pointBudget: 50};
-  const first = sampleEdgeField(frame, options), later = sampleEdgeField(frame, {...options, elapsed: 5});
-  assert.deepEqual(first, sampleEdgeField(frame, options));
-  assert.deepEqual(first.curves.map(c => c.edge), later.curves.map(c => c.edge));
-  assert.notDeepEqual(first.curves.map(c => c.points), later.curves.map(c => c.points));
-  assert.ok(first.curves.some((c, i) => Math.abs(c.alpha - later.curves[i].alpha) > .08));
-  assert.deepEqual(first.points, []);
-  assert.deepEqual(later.points, []);
-});
-
-test('fixed elapsed freezes all changes and reduced motion is static for arbitrarily later elapsed', () => {
-  const frame = makeFrame();
-  assert.deepEqual(sampleEdgeField(frame, {elapsed: 2}), sampleEdgeField(frame, {elapsed: 2}));
-  const still = sampleEdgeField(frame, {elapsed: 0, reducedMotion: true});
-  assert.deepEqual(still, sampleEdgeField(frame, {elapsed: 10000, reducedMotion: true}));
-  assert.ok(still.curves.length > 0);
-  assert.deepEqual(still.points, []);
-});
-
-test('local continuous alpha envelopes differ spatially without abrupt high-contrast flashes', () => {
-  const frame = makeFrame(1);
-  let previous = sampleEdgeField(frame, {elapsed: 0, edgeBudget: 24, pointBudget: 24});
-  assert.ok(new Set(previous.curves.map(c => c.alpha.toFixed(3))).size > 12);
-  for (let step = 1; step <= 480; step++) {
-    const next = sampleEdgeField(frame, {elapsed: step / 30, edgeBudget: 24, pointBudget: 24});
-    for (let i = 0; i < next.curves.length; i++) {
-      assert.ok(next.curves[i].alpha >= 0 && next.curves[i].alpha <= 1);
-      assert.ok(Math.abs(next.curves[i].alpha - previous.curves[i].alpha) < .03);
+  const options = {edgeBudget: 60, segments: 6};
+  const first = sampleEdgeField(frame, options);
+  assert.equal(first.curves.length, 60);
+  assert.ok(first.curves.every(curve => curve.alpha === 1));
+  for (const reducedMotion of [false, true]) {
+    for (const elapsed of [0, .033, .2, 1, 2.5, 5, 20, 10000, NaN, Infinity]) {
+      assert.deepEqual(sampleEdgeField(frame, {...options, elapsed, reducedMotion}), first);
     }
-    assert.deepEqual(next.points, []);
-    previous = next;
   }
+  assert.deepEqual(first.points, []);
 });
 
 test('empty stages never regenerate lines or points, regardless of budgets', () => {
@@ -144,12 +140,12 @@ test('work and output remain bounded without scanning unselected edges', () => {
   }});
   const limited = sampleEdgeField(frame, {edgeBudget: 17, segments: 3, pointBudget: 13});
   assert.equal(reads, 17);
-  assert.ok(limited.curves.length <= 34);
+  assert.equal(limited.curves.length, 17);
   assert.ok(limited.renderedSegments <= 51);
   assert.equal(limited.renderedPoints, 0);
   assert.deepEqual(limited.points, []);
   const huge = sampleEdgeField(frame, {edgeBudget: 1e9, segments: 1e9, pointBudget: 1e9});
-  assert.ok(huge.curves.length <= MAX_FIELD_EDGES * 2);
+  assert.ok(huge.curves.length <= MAX_FIELD_EDGES);
   assert.ok(huge.renderedSegments <= MAX_FIELD_EDGES * MAX_FIELD_SEGMENTS);
   assert.equal(huge.renderedPoints, 0);
   assert.deepEqual(huge.points, []);

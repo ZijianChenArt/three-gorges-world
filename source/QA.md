@@ -1,8 +1,18 @@
-# Release validation — 5.5.0
+# Release validation — 5.6.0
 
-168 automated tests pass, followed by the production Vite build.
+183 automated tests pass, followed by the production Vite build.
 
 ## This revision
+
+- HTML/CSS, Canvas clearing, label backing and the physical scene all use exact pure white (#FFFFFF).
+
+- Ground mirror geometry, Reflector import, capture target and reflection hook are removed. The main draw submits one scene render and cleanup has no dangling floor resource. Environment/PBR reflections remain; a transparent soft-shadow receiver replaces the mirror.
+
+- Actual source edges now produce one uninterrupted sampled polyline each, with no independent bowing arcs, split gaps, appearance gates, duplicate entry outline or added chromatic fringes. Shared model deformation bends the existing edge samples.
+- Full-viewport rendering replaces mismatched top/bottom bands. Six-plane clipping keeps near-plane crossings finite and interpolates source coordinates for accurate picking. The actual triangle budget remains bounded; redundant resize events do not clear the Canvas.
+- These are verified code-level flicker risks. The original reported GPU artifact was not reproduced on a real GPU and is not claimed conclusively fixed there.
+
+## Retained camera checks
 
 - Repeated pending touches and taps produce exactly the same complete camera pose and clock as untouched playback in deterministic integration tests.
 - Real drag promotion snapshots the displayed camera before applying finger movement. Multi-touch takeover, last release, cancellation, repeated gestures and smooth return are tested without ghost taps.
@@ -12,11 +22,11 @@
 ## Retained checks
 
 - Visible point generation, animation data, point textures, Three.Points objects and their GPU buffers are removed. No P counter or point marks remain. Compatibility fields report zero points.
-- Shadow maps, light casters and mesh receivers are disabled. Physical material illumination and the bounded shallow planar reflection remain.
+- Ground shadows use bounded512/1024px maps and a transparent ShadowMaterial receiver. Erased source geometry cannot cast, and no ground mirror is rendered.
 - The camera follows a forward-looking interior route through the model group, guided by current instance centers and conservative bounds. Automatic view freezes during manual inspection and resumes with smooth blending.
-- Eight bounded shared material finishes include rough/polished metals, clear/smoked/amber glass, cobalt lacquer and oxide ceramic. Seeded intake and selective color distribution are checked.
+- Ten bounded shared material finishes include rough/polished metals, clear/smoked/amber glass, cobalt lacquer, oxide ceramic and two acid gradients. Shared small texture maps and source-local UV continuity are checked. Seeded intake and selective color distribution are checked.
 - Each instance has independent slow multi-axis rotation and bounded drift; Canvas/PBR transforms match numerically and pause/reduced motion are covered.
-- Hit-local impulses act within33ms, propagate spatially and finish within0.82s. Chromatic curve fringes share that envelope and remain point-free. Reduced motion uses a soft stationary color fade.
+- Hit-local impulses act within33ms, propagate spatially and finish within1.5s. Existing-edge tint shares that envelope; no additional geometry is created. Reduced motion uses a soft stationary color fade.
 - Single-model vertex/curve scatter and gather remain isolated. No whole-scene translation or resurrection of erased geometry occurs.
 
 ## Automated coverage
@@ -29,7 +39,6 @@ The aggregate Node tests and production Vite build must pass against the final s
 - Geometry-based picking, target-owned response buffers, exact return at a fixed stage, no changes to other instances, empty-space and deleted-object rejection.
 - Pause, reduced motion, natural camera gestures, pointer cancellation, keyboard equivalents and canvas-scoped iOS callout suppression.
 - Bounded line buffers, instance budgets, cumulative registrations and compact history across a 24-hour simulation.
-- Bounded actual planar-reflection target, reflected camera, self-exclusion and render-state restoration. The fade shader is statically inspected.
 
 ## Retained asset and performance checks
 
@@ -39,6 +48,6 @@ A prior CPU-only local preparation benchmark constructed the shared full-mesh st
 
 ## Verification limits
 
-The available cloud browser has no usable WebGL2 GPU renderer. Real PBR appearance, GPU shader execution, physical glass, planar-reflection appearance and GPU frame rate have NOT been visually verified on hardware. Published-browser checks validate the explicitly labeled Canvas compatibility path. Tests of Three.js objects are not presented as GPU-rendered evidence.
+The available cloud browser has no usable WebGL2 GPU renderer. Real PBR appearance, GPU shader execution, physical glass, soft ground-shadow appearance and GPU frame rate have NOT been visually verified on hardware. Published-browser checks validate the explicitly labeled Canvas compatibility path. Tests of Three.js objects are not presented as GPU-rendered evidence.
 
 The camera uses conservative bounding-volume guidance, not triangle-level collision detection. It can pass through open structural volumes and may cross a changing surface. Physical iOS callout behavior and real multi-touch remain untested. No GPU restrictions or blocked local preview were bypassed.

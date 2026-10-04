@@ -44,6 +44,8 @@ export class RippleMesh {
       geometry.name = `${source.id}:ripple:${serial}:patch:${patchIndex}`;
       geometry.setAttribute('position', this.position);
       geometry.setAttribute('normal', this.normal);
+      // Colors deform with the original surface; UVs are never rebuilt per wave.
+      if (patch.attributes.uv) geometry.setAttribute('uv', patch.attributes.uv);
       geometry.setIndex(new BufferAttribute(patch.index.array.slice(), 1).setUsage(DynamicDrawUsage));
       geometry.boundingBox = box;
       geometry.boundingSphere = sphere;

@@ -4,11 +4,11 @@
  * pose, the archive clock, survivor topology, or any shared source geometry.
  */
 export const MAX_RIPPLES = 2;
-export const RIPPLE_DURATION = .82;
+export const RIPPLE_DURATION = 1.5;
 const REDUCED_PULSE_DURATION=.22;
 export const MAX_RIPPLE_DISPLACEMENT = .48;
-const FRONT_DELAY = .5;
-const FRONT_DISTANCE = 1.5;
+const FRONT_DELAY = .85;
+const FRONT_DISTANCE = 1.8;
 const FRONT_ATTACK = .028;
 const FRONT_DECAY = RIPPLE_DURATION - FRONT_DELAY - FRONT_ATTACK;
 const ORIGIN_SOFTNESS = .22;
@@ -86,7 +86,7 @@ export function advanceRipples(ripples, dt, {paused = false, reducedMotion = fal
  * input coordinates always remain equal, so collapsed faces cannot reappear.
  *
  * A sharp spatial impulse reaches farther points later. Each point scatters
- * radially and softly rebounds within .82 seconds, at rest at both joins.
+ * radially and softly rebounds within 1.5 seconds, at rest at both joins.
  * The softened radial vector is continuous at the clicked origin and its
  * displacement is strictly smaller than MAX_RIPPLE_DISPLACEMENT.
  */

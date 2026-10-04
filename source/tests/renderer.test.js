@@ -16,3 +16,34 @@ test('front-side perspective inspection follows rightward and upward finger move
 
 test('actual rendered curve coordinates change within five seconds even with fixed camera and fixed logical topology',()=>{const r=new ArchivePrint({getContext:()=>ctx},groups,faces,{overlayOnly:true});r.resize(1188,762);const s=stateAt(0,{initialCount:12});r.draw(s);const first=r.fields.flatMap(f=>f.curves.flatMap(c=>c.points.flat())),edges=r.summary.edges;s.elapsed=4;r.draw(s);assert.equal(r.summary.edges,edges);const next=r.fields.flatMap(f=>f.curves.flatMap(c=>c.points.flat()));assert.ok(first.some((v,i)=>Math.abs(v-next[i])>.01));const paused=JSON.stringify(r.fields);r.draw(s);assert.equal(JSON.stringify(r.fields),paused);assert.ok(r.renderedSegments>0&&r.renderedPoints===0);});
 test('no visible points exist in desktop or mobile frames, including local ripple',async()=>{const{createRippleState,emitRipple,advanceRipples}=await import('../src/ripple.js');for(const [w,h] of [[390,844],[1188,762]]){const r=new ArchivePrint({getContext:()=>ctx},groups,faces);r.resize(w,h);const s=stateAt(0,{initialCount:8});s.ripples=createRippleState();r.draw(s);const target=r.centralTarget();assert.ok(target);emitRipple(s.ripples,{serial:target.serial,origin:target.local});for(const t of[0,.033,.16,.9]){advanceRipples(s.ripples,t);s.elapsed=t;r.draw(s);assert.equal(r.renderedPoints,0);assert.ok(r.fields.every(f=>f.points.length===0));assert.ok(r.renderedSegments>0);}}});
+
+test('Canvas uses the full viewport and submits only bounded clipped drawing and pick geometry',()=>{
+  for(const [w,h] of [[390,844],[1188,762]]){
+    const rectangles=[],paths=[];
+    const context=new Proxy({rect:(...args)=>rectangles.push(args),moveTo:(...args)=>paths.push(args),lineTo:(...args)=>paths.push(args)},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
+    const renderer=new ArchivePrint({getContext:()=>context},groups,faces);renderer.resize(w,h);renderer.faceBudget=7;
+    for(const elapsed of [0,40,64,96]){
+      renderer.camera=automaticCamera(elapsed,w<650);rectangles.length=paths.length=0;
+      renderer.draw(stateAt(elapsed,{budget:w<650?7:14}));
+      assert.deepEqual(rectangles,[[0,0,w,h]]);
+      assert.ok(paths.length);
+      for(const p of paths)assert.ok(p.every(Number.isFinite)&&p[0]>=0&&p[0]<=w&&p[1]>=0&&p[1]<=h,`Unbounded path ${p}`);
+      assert.equal(renderer.facetCount,renderer.pickItems.reduce((sum,item)=>sum+item.triangles.length,0));
+      assert.ok(renderer.facetCount<=7);
+      assert.equal(renderer.renderedSegments,renderer.pickItems.reduce((sum,item)=>sum+item.curves.length,0));
+      for(const item of renderer.pickItems)for(const primitive of [...item.curves,...item.triangles]){
+        for(const p of primitive.screen)assert.ok(p.every(Number.isFinite)&&p.visible&&p[0]>=0&&p[0]<=w&&p[1]>=0&&p[1]<=h);
+        assert.equal(primitive.screen.length,primitive.local.length);assert.equal(primitive.screen.length,primitive.world.length);
+      }
+      assert.equal(renderer.pick(w/2,-1),null);assert.equal(renderer.pick(w/2,h+1),null);
+    }
+  }
+});
+
+test('picking stays available along the full bottom edge after removing the interior stage crop',()=>{
+  const renderer=new ArchivePrint({getContext:()=>ctx},groups,faces);renderer.resize(200,200);renderer.view=getView(200,200);
+  renderer.pickItems=[{serial:4,curves:[{screen:[[70,198,1],[130,198,1]],local:[[0,0,0],[1,0,0]],world:[[0,0,0],[1,0,0]],alpha:1}]}];
+  assert.equal(renderer.pick(100,198).serial,4);
+});
+
+test('redundant resize events never reset the Canvas drawing buffer',()=>{let writes=0;const canvas={getContext:()=>ctx,set width(v){writes++;},set height(v){writes++;}};const r=new ArchivePrint(canvas,groups,faces);r.resize(390,844,1.5);const baseline=writes;for(let i=0;i<20;i++)r.resize(390,844,1.5);assert.equal(writes,baseline);r.resize(390,800,1.5);assert.ok(writes>baseline);});

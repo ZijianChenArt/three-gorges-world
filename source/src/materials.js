@@ -1,14 +1,16 @@
+import {gradientColor, gradientHeight} from './physical-gradients.js';
+
 /**
  * Shared material palette with deliberately stylized Canvas fallback shading.
  * Only the WebGL renderer provides physically based transmission/reflections.
  * All variation comes from instance seeds, geometry and the current view. Time
  * never drives a blink, a random sample or a texture animation.
  */
-export const MATERIAL_KINDS = Object.freeze(['metal', 'matte', 'translucent', 'cut', 'smoked', 'cobalt', 'oxide', 'amber']);
-export const MATERIAL_NAMES = Object.freeze({metal: 'POLISHED CHROME', matte: 'ROUGH METAL', translucent: 'CLEAR GLASS', cut: 'SATIN CUT METAL', smoked: 'SMOKED GLASS', cobalt: 'COBALT LACQUER', oxide: 'OXIDE CERAMIC', amber: 'AMBER GLASS'});
-// Eight shared materials; the first four indices are preserved for old records.
-// Three restrained color accents in twelve intakes, with every finish visible.
-const INITIAL_MATERIALS = Object.freeze([0, 1, 2, 3, 4, 5, 0, 6, 1, 7, 2, 3]);
+export const MATERIAL_KINDS = Object.freeze(['metal', 'matte', 'translucent', 'cut', 'smoked', 'cobalt', 'oxide', 'amber', 'acid-glass', 'acid-metal']);
+export const MATERIAL_NAMES = Object.freeze({metal: 'POLISHED CHROME', matte: 'ROUGH METAL', translucent: 'CLEAR GLASS', cut: 'SATIN CUT METAL', smoked: 'SMOKED GLASS', cobalt: 'COBALT LACQUER', oxide: 'OXIDE CERAMIC', amber: 'AMBER GLASS', 'acid-glass': 'LIME VIOLET GLASS', 'acid-metal': 'VIOLET BLUE METAL'});
+// Preserve all eight existing indices. Only two duplicate opening finishes
+// become gradients; all ten finishes are represented in the twelve intakes.
+const INITIAL_MATERIALS = Object.freeze([0, 1, 2, 3, 4, 5, 8, 6, 9, 7, 2, 3]);
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -28,11 +30,13 @@ const hash = seed => {
 };
 const LIGHT = vector([.35, .83, -.42]);
 
-/** Deterministic bounded assignment: 70% neutral finishes, 30% color accents. */
+/** Deterministic assignment: 55% neutral, 22% solid color, 23% acid gradients. */
 export function materialIndexFor(seed = 0, serial = 0) {
   if (Number.isInteger(serial) && serial >= 1 && serial <= INITIAL_MATERIALS.length) return INITIAL_MATERIALS[serial - 1];
   const value = hash(finite(seed) >>> 0), selector = value / 4294967296;
-  return selector < .7 ? Math.floor(selector / .7 * 5) : 5 + Math.min(2, Math.floor((selector - .7) / .3 * 3));
+  if (selector < .55) return Math.floor(selector / .55 * 5);
+  if (selector < .77) return 5 + Math.min(2, Math.floor((selector - .55) / .22 * 3));
+  return 8 + Math.min(1, Math.floor((selector - .77) / .23 * 2));
 }
 
 /** Call once per intake, not per face. No global state or Math.random is used. */
@@ -49,7 +53,7 @@ export function materialFor(seed = 0) {
  * Translucent facets should be painted far-to-near with source-over blending.
  * elapsed is accepted for renderer compatibility but intentionally not used.
  */
-export function shadeFacet({material = 'matte', normal, view, center, seed, elapsed: _elapsed} = {}) {
+export function shadeFacet({material = 'matte', normal, view, center, sourceCenter, sourceBounds, seed, elapsed: _elapsed} = {}) {
   const kind = MATERIAL_KINDS.includes(typeof material === 'string' ? material : material?.kind)
     ? (typeof material === 'string' ? material : material.kind) : 'matte';
   const stableSeed = finite(seed, finite(material?.seed)) >>> 0;
@@ -61,6 +65,16 @@ export function shadeFacet({material = 'matte', normal, view, center, seed, elap
     lineWidth: .68, highlight: '#f8f8f8', highlightAlpha: 0,
     hatch: null, specular: 0, diffuse,
   };
+  if (kind === 'acid-glass' || kind === 'acid-metal') {
+    // Compatibility tint sampled from the ORIGINAL source centroid, not a
+    // simulated PBR/refraction effect or a random color for each triangle.
+    const color = gradientColor(kind, gradientHeight(sourceCenter, sourceBounds));
+    const glass = kind === 'acid-glass';
+    return {...style, fill: tint(color, glass ? 1 : .62 + .38 * diffuse),
+      alpha: glass ? .2 + .08 * grazing : .72,
+      edge: tint(color, .45), edgeAlpha: glass ? .54 : .84,
+      lineWidth: .65, highlight: '#f7f7ff', highlightAlpha: glass ? .025 * grazing : 0};
+  }
   if (kind === 'metal') {
     const reflection = n.map((x, i) => 2 * lightFacing * x - LIGHT[i]);
     const alignment = clamp(dot(reflection, v), -1, 1);

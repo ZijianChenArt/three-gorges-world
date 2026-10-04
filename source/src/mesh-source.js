@@ -184,6 +184,15 @@ export function extractSourceGeometries(scene, wireData, { steps = STEPS } = {})
     }
     // Preserve original smooth/flat normals, filling only genuinely absent ones.
     const positions = new Float32Array(precisePositions);
+    // A continuous original-source planar coordinate field, shared by every
+    // stage. Snapping, patching and ripples never resample or animate the map.
+    const uv = new Float32Array(vertexCount * 2);
+    for (let vertex = 0; vertex < vertexCount; vertex++) for (let axis = 0; axis < 2; axis++) {
+      const span = size[axis] / unit;
+      uv[vertex * 2 + axis] = span > 0
+        ? Math.max(0, Math.min(1, positions[vertex * 3 + axis] / span + .5)) : .5;
+    }
+    const uvAttribute = new BufferAttribute(uv, 2);
     const fallback = facetNormals(positions);
     for (let at = 0; at < normals.length; at += 3) {
       if (!Number.isFinite(normals[at] + normals[at + 1] + normals[at + 2])
@@ -212,6 +221,7 @@ export function extractSourceGeometries(scene, wireData, { steps = STEPS } = {})
       geometry.name = `${group.id}:stage:${stageIndex}`;
       geometry.setAttribute('position', attributes[stageIndex].position);
       geometry.setAttribute('normal', attributes[stageIndex].normal);
+      geometry.setAttribute('uv', uvAttribute);
       geometry.setIndex(triangleIndex(stage.triangleIds, vertexCount));
       const next = attributes[Math.min(stageIndex + 1, stages.length - 1)];
       geometry.morphAttributes.position = [next.position];

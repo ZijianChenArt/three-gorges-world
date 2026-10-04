@@ -26,26 +26,28 @@ test('material intake assignment is deterministic, immutable, and covers the com
 
 test('intake material indices are seeded, bounded, and keep color accents restrained', () => {
   assert.deepEqual(MATERIAL_KINDS.slice(0, 4), ['metal', 'matte', 'translucent', 'cut']);
-  assert.equal(MATERIAL_KINDS.length, 8);
+  assert.deepEqual(MATERIAL_KINDS.slice(0, 8), ['metal', 'matte', 'translucent', 'cut', 'smoked', 'cobalt', 'oxide', 'amber']);
+  assert.equal(MATERIAL_KINDS.length, 10);
   assert.ok(MATERIAL_KINDS.every(kind => MATERIAL_NAMES[kind]));
   const initial = Array.from({length: 12}, (_, i) => makeInstance(i + 1, 0, 271828).materialIndex);
   assert.deepEqual(initial.slice(0, 4), [0, 1, 2, 3]);
   assert.equal(new Set(initial).size, MATERIAL_KINDS.length);
-  assert.equal(initial.filter(index => index >= 5).length, 3);
+  assert.equal(initial.filter(index => index >= 5 && index < 8).length, 3);
+  assert.equal(initial.filter(index => index >= 8).length, 2);
   for (const seed of [0, 1, 271828, 999999]) {
     const instances = Array.from({length: 2000}, (_, i) => makeInstance(i + 13, 0, seed));
     for (const instance of instances) {
       assert.ok(Number.isInteger(instance.materialIndex) && instance.materialIndex >= 0 && instance.materialIndex < MATERIAL_KINDS.length);
       assert.deepEqual(instance, makeInstance(instance.serial, 0, seed));
     }
-    const fraction = instances.filter(instance => instance.materialIndex >= 5).length / instances.length;
-    assert.ok(fraction >= .25 && fraction <= .35, `color fraction ${fraction} for seed ${seed}`);
+    const fraction = instances.filter(instance => instance.materialIndex >= 8).length / instances.length;
+    assert.ok(fraction >= .20 && fraction <= .25, `gradient fraction ${fraction} for seed ${seed}`);
   }
   assert.equal(materialIndexFor(NaN), materialIndexFor(0));
   assert.notDeepEqual(Array.from({length: 100}, (_, i) => makeInstance(i + 13, 0, 1).materialIndex), Array.from({length: 100}, (_, i) => makeInstance(i + 13, 0, 2).materialIndex));
 });
 
-test('the eight fallback materials have distinct bounded neutral and tinted canvas styles', () => {
+test('the ten fallback materials have distinct bounded neutral and tinted canvas styles', () => {
   const styles = MATERIAL_KINDS.map(material => shadeFacet({...base, material}));
   assert.equal(new Set(styles.map(s => `${s.fill}/${s.alpha}/${s.edge}/${Boolean(s.hatch)}`)).size, MATERIAL_KINDS.length);
   assert.ok(styles[2].alpha < .13 && styles[1].alpha > .4);

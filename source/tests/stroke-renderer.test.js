@@ -35,6 +35,27 @@ test('actual Three line buffers use supplied source-derived positions and truthf
   assert.equal(scene.children.length, 0);
 });
 
+test('one-pixel line opacity stays subtle and stable while supplied pulse tint is preserved', () => {
+  const scene = new THREE.Scene(), renderer = new StrokeRenderer(scene);
+  const curve = {points: [[0, 0, 0], [.5, 0, 0], [1, 0, 0]], alpha: 1};
+  assert.equal(renderer.lines.material.opacity, .55);
+  assert.equal(renderer.lines.material.linewidth, 1);
+  renderer.update([{curves: [curve]}]);
+  const original = Array.from(renderer.lineColors.slice(0, 12));
+  for (const color of [[.1, .8, .9], [.85, .1, .7]]) {
+    renderer.update([{curves: [{...curve, color}]}]);
+    assert.equal(renderer.lines.material.opacity, .55);
+    assert.equal(renderer.renderedSegments, 2);
+    for (let at = 0; at < 12; at += 3) {
+      assert.deepEqual(Array.from(renderer.lineColors.slice(at, at + 3)), color.map(Math.fround));
+    }
+    assertLineOnly(scene, renderer);
+  }
+  renderer.update([{curves: [curve]}]);
+  assert.deepEqual(Array.from(renderer.lineColors.slice(0, 12)), original);
+  renderer.dispose();
+});
+
 test('line GPU memory stays fixed and bounded under oversize input', () => {
   const scene = new THREE.Scene(), renderer = new StrokeRenderer(scene);
   const positions = renderer.linePositions, colors = renderer.lineColors;
