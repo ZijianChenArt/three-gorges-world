@@ -2,6 +2,22 @@
 
 An autonomous artwork about an archive that retains its registrations while progressively destroying the geometry of what it registers. New source instances continue to arrive, and empty records accumulate behind them.
 
+## Point / line / surface parameters
+
+The visible artwork has no title or concept paragraph. Only numerical record IDs, spatial links, render status, R/E/P/L/F parameters and accessible icon controls remain. The tucked-away help contains the parameter key and controls.
+
+Curved polylines are constructed from actual surviving structural edges. Their endpoints follow the current quantized vertices; source-local normals bow them into curves, and smooth interior gaps expose corresponding points. No independent decorative particle cloud is added. Selection is deterministic and bounded. The physical renderer uses real Three.js LineSegments and Points in the same 3D scene, rather than drawing model strokes over a 2D overlay.
+
+The full original GLB is partitioned into three disjoint source-local spatial patches. At each quantization stage their union is exactly the complete surviving mesh, with shared original position, normal and morph buffers. Slow asynchronous point/line/surface phases reveal different local representations. Surface visibility uses physical-material opacity in small one-twelfth steps, while curves and points use continuously varying local weights. These display phases never restore logically deleted edges or faces. No fullscreen flash or rapid strobe is used.
+
+- R: cumulative registrations.
+- E: actual surviving logical structural edges, before rendering subdivision.
+- P: source-bound points submitted for display.
+- L: submitted curve sample segments; in Canvas compatibility mode this also includes the brief exact-source outline at entry.
+- F: submitted visible-patch triangles (sampled actual source faces in compatibility mode, full original mesh faces in PBR).
+
+Desktop edge-field work is capped at1,200 source edges ×6 segments, plus580 source-bound points; phone uses540 ×4 and260 points. Surface batches are bounded by three patches per active instance and share geometry/materials. Line and point buffers are fixed-size. A source at the erased stage submits no model faces, curves or points. Reduced motion freezes all representation phases, and pause freezes their shared clock.
+
 ## Real 3D renderer
 
 The primary renderer uses Three.js WebGL2 and all 28,384 original GLB triangles across five sources and29 mesh parts. It is no longer a Canvas-only material approximation.

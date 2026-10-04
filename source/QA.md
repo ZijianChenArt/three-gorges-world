@@ -1,8 +1,17 @@
-# Release validation — 5.1.0
+# Release validation — 5.2.0
 
-84 automated tests pass, followed by the production Vite build.
+105 automated tests pass, followed by the production Vite build.
 
-## New flight and ripple checks
+## New point / line / surface checks
+
+- Actual surviving source edges produce visibly curved, splitting polylines and associated endpoint/gap points. Fixed-camera coordinates change within five seconds, without changing logical topology or relying on camera motion.
+- Exact GLB face partitions are disjoint at all stages and preserve the complete original surviving union. They reuse original immutable attributes and morph targets.
+- Local complementary phases are continuous, deterministic and slow; reduced motion is static. Empty stages produce zero submitted faces, lines and points.
+- Real Three.js LineSegments and Points buffers are bounded, update from shared source-derived world positions, and report exact submitted counts.
+- Renderer integration tests exercise physical patch batches, morphs, ripple poses and the empty endpoint. E remains the logical edge count, separately from subdivided L and displayed P/F.
+- The visible title/concept prose is removed; icon controls retain accessible labels and parameter help stays selectable.
+
+## Retained flight and ripple checks
 
 - Perspective camera and Canvas annotations match numerically, including off-axis pan. World-space target and eye translate continuously, with real depth parallax and dolly movement.
 - Reference model displacement is about147px desktop and80px phone after five seconds. An hour-long trajectory stays bounded and smooth.
